@@ -1,0 +1,446 @@
+{
+"z": {
+"top": {
+"speck": 0.0024,
+"void_w": 0.0103,
+"per_layer": {
+"6": 0.0103,
+"7": 0.0056
+},
+"hair": 0.012,
+"thin_len": 0.74,
+"thin_min": 0.0873053,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.05,
+"bite": 0.0196
+},
+"bottom": {
+"speck": 0.0,
+"void_w": 0.0143,
+"per_layer": {
+"1": 0.0,
+"2": 0.0143
+},
+"hair": 0.0151,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.07,
+"bite": 0.0261
+}
+},
+"w": {
+"top": {
+"speck": 0.0,
+"void_w": 0.0133,
+"per_layer": {
+"6": 0.0063,
+"7": 0.0133
+},
+"hair": 0.0142,
+"thin_len": 0.564,
+"thin_min": 0.161201,
+"thin_feat": [
+"Inner wall"
+],
+"bleed_max": 0.058,
+"bite": 0.0336
+},
+"bottom": {
+"speck": 0.0046,
+"void_w": 0.0093,
+"per_layer": {
+"1": 0.0069,
+"2": 0.0093
+},
+"hair": 0.0104,
+"thin_len": 0.549,
+"thin_min": 0.156818,
+"thin_feat": [
+"Inner wall"
+],
+"bleed_max": 0.05,
+"bite": 0.0371
+}
+},
+"t": {
+"top": {
+"speck": 0.0,
+"void_w": 0.0072,
+"per_layer": {
+"6": 0.0072,
+"7": 0.0021
+},
+"hair": 0.0094,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.1,
+"bite": 0.0314
+},
+"bottom": {
+"speck": 0.0,
+"void_w": 0.0058,
+"per_layer": {
+"1": 0.0,
+"2": 0.0058
+},
+"hair": 0.0072,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.094,
+"bite": 0.0226
+}
+},
+"#": {
+"top": {
+"speck": 0.0,
+"void_w": 0.01,
+"per_layer": {
+"6": 0.01,
+"7": 0.0
+},
+"hair": 0.0112,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.14,
+"bite": 0.011
+},
+"bottom": {
+"speck": 0.0,
+"void_w": 0.0074,
+"per_layer": {
+"1": 0.0,
+"2": 0.0074
+},
+"hair": 0.0087,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.13,
+"bite": 0.0142
+}
+},
+"f": {
+"top": {
+"speck": 0.0,
+"void_w": 0.0093,
+"per_layer": {
+"6": 0.0093,
+"7": 0.0
+},
+"hair": 0.0101,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.098,
+"bite": 0.032
+},
+"bottom": {
+"speck": 0.0,
+"void_w": 0.015,
+"per_layer": {
+"1": 0.0,
+"2": 0.015
+},
+"hair": 0.0163,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.1,
+"bite": 0.0341
+}
+},
+"X": {
+"top": {
+"speck": 0.003,
+"void_w": 0.0195,
+"per_layer": {
+"6": 0.0071,
+"7": 0.0195
+},
+"hair": 0.021,
+"thin_len": 0.52,
+"thin_min": 0.0919858,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.05,
+"bite": 0.0182
+},
+"bottom": {
+"speck": 0.0056,
+"void_w": 0.0187,
+"per_layer": {
+"1": 0.0059,
+"2": 0.0187
+},
+"hair": 0.0204,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.06,
+"bite": 0.0173
+}
+},
+"K": {
+"top": {
+"speck": 0.0151,
+"void_w": 0.0253,
+"per_layer": {
+"6": 0.0253,
+"7": 0.0151
+},
+"hair": 0.0278,
+"thin_len": 0.199,
+"thin_min": 0.116618,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.05,
+"bite": 0.0153
+},
+"bottom": {
+"speck": 0.0044,
+"void_w": 0.0185,
+"per_layer": {
+"1": 0.0185,
+"2": 0.0126
+},
+"hair": 0.02,
+"thin_len": 0.441,
+"thin_min": 0.121315,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.045,
+"bite": 0.027
+}
+},
+"N": {
+"top": {
+"speck": 0.0009,
+"void_w": 0.0239,
+"per_layer": {
+"6": 0.0183,
+"7": 0.0239
+},
+"hair": 0.0243,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.07,
+"bite": 0.0335
+},
+"bottom": {
+"speck": 0.0101,
+"void_w": 0.0205,
+"per_layer": {
+"1": 0.0205,
+"2": 0.0182
+},
+"hair": 0.0218,
+"thin_len": 0.915,
+"thin_min": 0.0918874,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.045,
+"bite": 0.0234
+}
+},
+"V": {
+"top": {
+"speck": 0.0084,
+"void_w": 0.0102,
+"per_layer": {
+"6": 0.0084,
+"7": 0.0102
+},
+"hair": 0.0122,
+"thin_len": 0.162,
+"thin_min": 0.0726049,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.058,
+"bite": 0.0148
+},
+"bottom": {
+"speck": 0.0156,
+"void_w": 0.0395,
+"per_layer": {
+"1": 0.0395,
+"2": 0.0186
+},
+"hair": 0.0404,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.054,
+"bite": 0.016
+}
+},
+"&": {
+"top": {
+"speck": 0.0,
+"void_w": 0.1301,
+"per_layer": {
+"6": 0.1301,
+"7": 0.0
+},
+"hair": 0.1309,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.078,
+"bite": 0.0231
+},
+"bottom": {
+"speck": 0.0,
+"void_w": 0.0188,
+"per_layer": {
+"1": 0.0,
+"2": 0.0188
+},
+"hair": 0.0193,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.082,
+"bite": 0.0165
+}
+},
+"ł": {
+"top": {
+"speck": 0.0078,
+"void_w": 0.014,
+"per_layer": {
+"6": 0.014,
+"7": 0.0113
+},
+"hair": 0.0146,
+"thin_len": 0.72,
+"thin_min": 0.0922182,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.05,
+"bite": 0.0204
+},
+"bottom": {
+"speck": 0.005,
+"void_w": 0.014,
+"per_layer": {
+"1": 0.0078,
+"2": 0.014
+},
+"hair": 0.0152,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.041,
+"bite": 0.017
+}
+},
+"+": {
+"top": {
+"speck": 0.0,
+"void_w": 0.0009,
+"per_layer": {
+"6": 0.0009,
+"7": 0.0
+},
+"hair": 0.0021,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.089,
+"bite": 0.0078
+},
+"bottom": {
+"speck": 0.0,
+"void_w": 0.0026,
+"per_layer": {
+"1": 0.0,
+"2": 0.0026
+},
+"hair": 0.0036,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.094,
+"bite": 0.0056
+}
+},
+"y": {
+"top": {
+"speck": 0.0025,
+"void_w": 0.0221,
+"per_layer": {
+"6": 0.0221,
+"7": 0.0025
+},
+"hair": 0.0231,
+"thin_len": 0.522,
+"thin_min": 0.123393,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.05,
+"bite": 0.0158
+},
+"bottom": {
+"speck": 0.0063,
+"void_w": 0.0172,
+"per_layer": {
+"1": 0.0115,
+"2": 0.0172
+},
+"hair": 0.0178,
+"thin_len": 0.39,
+"thin_min": 0.10989,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.051,
+"bite": 0.0206
+}
+},
+"k": {
+"top": {
+"speck": 0.0086,
+"void_w": 0.0207,
+"per_layer": {
+"6": 0.0207,
+"7": 0.0086
+},
+"hair": 0.0224,
+"thin_len": 0.221,
+"thin_min": 0.123282,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.045,
+"bite": 0.0168
+},
+"bottom": {
+"speck": 0.0089,
+"void_w": 0.0184,
+"per_layer": {
+"1": 0.0119,
+"2": 0.0184
+},
+"hair": 0.0209,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.072,
+"bite": 0.0163
+}
+}
+}
