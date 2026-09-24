@@ -1,4 +1,4 @@
-"""Build Beadjoint: fonts, specimen images and the verification report.
+"""Build Double bead: fonts, specimen images and the verification report.
 
     cadpy build.py            -> fonts/*.ttf, specimen/*.png, report.json
 
@@ -29,7 +29,7 @@ from beadjoint.specimen import draw_rows, thickness_map  # noqa: E402
 from beadjoint.verify import LINE_MIN, THIN_R, check_glyph, check_set, line_gaps  # noqa: E402
 from shapely import affinity  # noqa: E402
 
-LINES = [LOWER, FIGURES, "beadjoint", "the quick brown fox jumps over the lazy dog",
+LINES = [LOWER, FIGURES, "double bead", "the quick brown fox jumps over the lazy dog",
          "pack my box with five dozen liquor jugs", "0.25 1/16 3/32 7/8 13/32",
          '1/4" Jt.', '1/2" - 5/8" dep.', '9/16" Jt.', '1-1/8" - 1-13/32" dep.', '7/8" Jt.', '1-3/4" - 2-3/16" dep.']
 GAP_TOL = KERN_DROP + 0.03
@@ -63,8 +63,8 @@ def main():
 
     fonts = HERE / "fonts"
     report["fonts"] = build_all(fonts)
-    setters = {"Beadjoint": (kerned, "Beadjoint-Regular.ttf"), "Beadjoint Tab": (mixed, "BeadjointTab-Regular.ttf"),
-               "Beadjoint Mono": (tabular, "BeadjointMono-Regular.ttf")}
+    setters = {"Double bead": (kerned, "DoubleBead-Regular.ttf"), "Double bead Tab": (mixed, "DoubleBeadTab-Regular.ttf"),
+               "Double bead Mono": (tabular, "DoubleBeadMono-Regular.ttf")}
     for family, (setter, fname) in setters.items():
         reader = FontReader(fonts / fname)
         # the fonts are built from the finished full sets (spec sets plus the review rounds' redesigns)
@@ -99,11 +99,11 @@ def main():
 
     spec = HERE / "specimen"
     spec.mkdir(exist_ok=True)
-    reader = FontReader(fonts / "BeadjointTab-Regular.ttf")
-    draw_rows([("Beadjoint  (set P, kerned)", [kerned("beadjoint"), kerned(LOWER)]),
-               ("Beadjoint Tab  (mixed setting: tabular figures, 1 on a 9w cell)", [mixed(FIGURES), mixed("0.25 1/16 3/32 7/8 13/32")]),
-               ("Beadjoint Mono  (set M, 12w cells)", [tabular(LOWER[:13]), tabular(LOWER[13:]), tabular(FIGURES)]),
-               ("Masonry key labels, set from BeadjointTab-Regular.ttf", [reader.layout('1/4" Jt.'), reader.layout('1/2" - 5/8" dep.'),
+    reader = FontReader(fonts / "DoubleBeadTab-Regular.ttf")
+    draw_rows([("Double bead  (set P, kerned)", [kerned("double bead"), kerned(LOWER)]),
+               ("Double bead Tab  (mixed setting: tabular figures, 1 on a 9w cell)", [mixed(FIGURES), mixed("0.25 1/16 3/32 7/8 13/32")]),
+               ("Double bead Mono  (set M, 12w cells)", [tabular(LOWER[:13]), tabular(LOWER[13:]), tabular(FIGURES)]),
+               ("Masonry key labels, set from DoubleBeadTab-Regular.ttf", [reader.layout('1/4" Jt.'), reader.layout('1/2" - 5/8" dep.'),
                                                                      reader.layout('1-1/8" - 1-13/32" dep.')])],
               scale=10, path=spec / "specimen.png")
     thickness_map([kerned(LOWER[:13]), kerned(LOWER[13:]), mixed(FIGURES), tabular(LOWER[:13]), tabular(LOWER[13:]),

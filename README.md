@@ -1,9 +1,10 @@
-# Beadjoint
+# Double bead
 
 A font for multi-colour FDM text. Every stroke is exactly two extrusion widths, so an Arachne slicer
 prints each stroke as one wall loop passing itself: no hairlines, no one-bead strokes, no gap fill.
-The name: a bead is both an FDM extrusion and a mortar-joint profile, and the font was drawn for the
-labels on masonry repointing keys.
+The name: every stroke is a double bead, two extrusions side by side. Its working name was Beadjoint
+(a bead is also a mortar-joint profile; the font was drawn for the labels on masonry repointing
+keys), which the code package, repository and review log keep.
 
 It follows the two-bead font specification in [docs/SPEC.md](docs/SPEC.md) (lowercase, figures, the
 optical spacing and the checks), extended to 376 glyphs: A-Z, all ASCII symbols, Latin-1, Latin
@@ -34,16 +35,16 @@ Larger is always fine: strokes get wider than two beads and wide spots get extra
 Smaller never is: strokes drop under two beads. The browser site has a calculator (`site/`).
 
 Fusion measured 2026-09-23: a Fusion sketch text "H" set at Height 10 mm in Arial and Consolas is
-exactly 10.000 mm tall, so Height is the cap height; Beadjoint's cap height (OS/2 sCapHeight) is 700
+exactly 10.000 mm tall, so Height is the cap height; Double bead's cap height (OS/2 sCapHeight) is 700
 units = 14 w.
 
 ## Fonts
 
 | File | Use |
 |---|---|
-| `fonts/Beadjoint-Regular.ttf` | fully proportional, kerned: **best for labels** |
-| `fonts/BeadjointTab-Regular.ttf` | tabular figures on 9 w cells, for numbers stacked in a column (the footed 1 leaves gaps in 11, 14, 17 on one line); U+2007 figure space aligns them |
-| `fonts/BeadjointMono-Regular.ttf` | monospace, 12 w cells (narrow forms of æ œ Æ Œ ø Ø « » — Ĳ Ω; the 14 glyphs still wider than 10 w, © ® ™ ‰ the fractions and ŉ, are left out) |
+| `fonts/DoubleBead-Regular.ttf` | fully proportional, kerned: **best for labels** |
+| `fonts/DoubleBeadTab-Regular.ttf` | tabular figures on 9 w cells, for numbers stacked in a column (the footed 1 leaves gaps in 11, 14, 17 on one line); U+2007 figure space aligns them |
+| `fonts/DoubleBeadMono-Regular.ttf` | monospace, 12 w cells (narrow forms of æ œ Æ Œ ø Ø « » — Ĳ Ω; the 14 glyphs still wider than 10 w, © ® ™ ‰ the fractions and ŉ, are left out) |
 
 Side bearings are never under 1 w, so even a program that ignores kerning keeps every pair of glyphs
 2 w apart. Kerning (GPOS, plus a legacy `kern` table for the ASCII pairs) tucks overhangs in pair by
