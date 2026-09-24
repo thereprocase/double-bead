@@ -1,9 +1,9 @@
 """Font files (spec 1 and 10), for the full character set.
 
-    Beadjoint       set P, kerned: side bearings from the n-n gap, pair kerns from off()
-    Beadjoint Tab   the mixed setting: P glyphs, figures on 9w cells (1 -> 1ₜ), no kerning between
+    Double bead     set P, kerned: side bearings from the n-n gap, pair kerns from off()
+    Double bead Tab   the mixed setting: P glyphs, figures on 9w cells (1 -> 1ₜ), no kerning between
                     figures, every other pair kerned from off()
-    Beadjoint Mono  set M on 12w cells, no kerning (glyphs wider than 10w are left out)
+    Double bead Mono  set M on 12w cells, no kerning (glyphs wider than 10w are left out)
 
 1w = 50 font units, UPM 1000, Y_font = (10 - y) * 50: baseline 0, x-height 500, capitals and
 figures 700 (the OS/2 cap height, which is what Fusion's text Height sets), descender -200.
@@ -36,7 +36,7 @@ from .glyphs import FIGURES, pieces
 from .setting import CELL_F, CELL_M, WORD, off
 
 UNITS = 50
-VERSION = "1.101"
+VERSION = "1.200"
 KERN_DROP = 0.1
 LINE_MIN = 1.98
 GAP_TRIGGER, GAP_TARGET = 2.0, 2.02      # exceptions: below the trigger, push to the target
@@ -226,7 +226,7 @@ def build_font(path, family, glyphs, lsb, rsb, space, fea=None, legacy=None, mon
     fb.setupHorizontalMetrics(hm)
     win_asc, win_desc = round((10 - lo) * UNITS) + 20, round((hi - 10) * UNITS) + 20
     fb.setupHorizontalHeader(ascent=800, descent=-200, lineGap=400)     # r2: 28 w pitch keeps accents off the line above
-    ps = family.replace(" ", "") + "-Regular"
+    ps = "".join(w[:1].upper() + w[1:] for w in family.split()) + "-Regular"      # DoubleBeadTab-Regular
     fb.setupNameTable({"familyName": family, "styleName": "Regular", "uniqueFontIdentifier": f"{family} {VERSION}",
                        "fullName": family, "psName": ps, "version": f"Version {VERSION}", "description": DESCRIPTION})
     fb.setupOS2(sTypoAscender=800, sTypoDescender=-200, sTypoLineGap=400, usWinAscent=win_asc, usWinDescent=win_desc,
@@ -288,8 +288,8 @@ def _legacy(glyphs, classes, exceptions, left, right, space_pairs, no_kern):
 def build_all(out_dir, log=print):
     out_dir.mkdir(parents=True, exist_ok=True)
     report = {}
-    for family, fname, glyphs, cells in (("Beadjoint", "Beadjoint-Regular.ttf", full_p(), None),
-                                         ("Beadjoint Tab", "BeadjointTab-Regular.ttf", full_mixed(), CELL_F)):
+    for family, fname, glyphs, cells in (("Double bead", "DoubleBead-Regular.ttf", full_p(), None),
+                                         ("Double bead Tab", "DoubleBeadTab-Regular.ttf", full_mixed(), CELL_F)):
         left, right = side_reps(glyphs)
         lsb, rsb, half = metrics(glyphs, left, right, cells)
         no_kern = (lambda a, b: a in FIGURES and b in FIGURES) if cells else (lambda a, b: False)
@@ -308,5 +308,5 @@ def build_all(out_dir, log=print):
         log(family, r)
     m = full_m()
     lsb = {c: (CELL_M - g.width) / 2 for c, g in m.items()}
-    report["Beadjoint Mono"] = build_font(out_dir / "BeadjointMono-Regular.ttf", "Beadjoint Mono", m, lsb, lsb, CELL_M, mono=True)
+    report["Double bead Mono"] = build_font(out_dir / "DoubleBeadMono-Regular.ttf", "Double bead Mono", m, lsb, lsb, CELL_M, mono=True)
     return report

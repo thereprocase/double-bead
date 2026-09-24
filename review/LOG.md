@@ -83,3 +83,6 @@
 - Mono gained narrow (10 w) forms of æ œ Æ Œ ø Ø « » — Ĳ Ω, so Danish, Norwegian and French can be set in Mono; ⌀ and the ohm sign follow Ø and Ω. Still left out of Mono: © ® ™ ‰, the fractions and ŉ.
 - w (the user: not wild about it): the V-built w read as a u with a bump, and raising its middle fold 0.5-1.5 w did not fix it. It is now a turned m with a short middle stick (top 4 w below the x-height), square like u and m, 10 w wide in all three fonts; its widest point drops from 3.5 w (filled valleys) to 2.5 w. ŵ ẁ ẃ ẅ follow. v and y keep their diagonals.
 - Released together with round 11 as v1.101.
+
+## Renamed Double bead (2026-09-24)
+- The user chose the name Double bead after a mockup. Fonts v1.200: families Double bead, Double bead Tab and Double bead Mono, files DoubleBead*-Regular.ttf; glyphs, spacing and sizing are v1.101's. The installer removes the Beadjoint-named installs. The code package, repository and this log keep the working name.

@@ -1,4 +1,4 @@
-"""Build the Beadjoint browser site (static, served on the LAN by site/serve.py).
+"""Build the Double bead browser site (static, served on the LAN by site/serve.py).
 
     cadpy site/build_site.py [--demo demo/check-owt0.json] [--crops demo/glyphs]
 
@@ -147,9 +147,9 @@ def main():
         ],
         "log": read_log(),
         "files": [
-            {"name": "Beadjoint-Regular.ttf", "href": "fonts/Beadjoint-Regular.ttf", "text": "fully proportional, kerned: best for labels"},
-            {"name": "BeadjointTab-Regular.ttf", "href": "fonts/BeadjointTab-Regular.ttf", "text": "proportional letters, tabular figures: numbers stacked in a column"},
-            {"name": "BeadjointMono-Regular.ttf", "href": "fonts/BeadjointMono-Regular.ttf", "text": "monospace, 12 w cells"},
+            {"name": "DoubleBead-Regular.ttf", "href": "fonts/DoubleBead-Regular.ttf", "text": "fully proportional, kerned: best for labels"},
+            {"name": "DoubleBeadTab-Regular.ttf", "href": "fonts/DoubleBeadTab-Regular.ttf", "text": "proportional letters, tabular figures: numbers stacked in a column"},
+            {"name": "DoubleBeadMono-Regular.ttf", "href": "fonts/DoubleBeadMono-Regular.ttf", "text": "monospace, 12 w cells"},
             {"name": "README.md", "href": "README.md", "text": "sizing table, rules, slicer profile, how to build"},
             {"name": "SPEC.md", "href": "SPEC.md", "text": "the two-bead font specification the design follows"},
             {"name": "LOG.md", "href": "LOG.md", "text": "the design log, one entry per review round"},

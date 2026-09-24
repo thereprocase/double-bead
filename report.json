@@ -63,7 +63,7 @@
   }
  },
  "fonts": {
-  "Beadjoint": {
+  "Double bead": {
    "glyphs": 376,
    "win": [
     1120,
@@ -87,7 +87,7 @@
     "max_outline_deviation": 0.0231
    }
   },
-  "Beadjoint Tab": {
+  "Double bead Tab": {
    "glyphs": 376,
    "win": [
     1120,
@@ -111,7 +111,7 @@
     "max_outline_deviation": 0.0231
    }
   },
-  "Beadjoint Mono": {
+  "Double bead Mono": {
    "glyphs": 362,
    "win": [
     1120,
@@ -129,7 +129,7 @@
   }
  },
  "lines": {
-  "Beadjoint": {
+  "Double bead": {
    "abcdefghijklmnopqrstuvwxyz": {
     "source_min_gap": 2.017,
     "ttf_min_gap": 1.998,
@@ -144,12 +144,12 @@
     "ttf_drift": 0.081,
     "width": 87.41
    },
-   "beadjoint": {
-    "source_min_gap": 2.018,
-    "ttf_min_gap": 2.017,
+   "double bead": {
+    "source_min_gap": 2.019,
+    "ttf_min_gap": 2.06,
     "ttf_gap_dev": 0.081,
-    "ttf_drift": 0.194,
-    "width": 69.69
+    "ttf_drift": 0.263,
+    "width": 89.28
    },
    "the quick brown fox jumps over the lazy dog": {
     "source_min_gap": 2.018,
@@ -215,7 +215,7 @@
     "width": 149.7
    }
   },
-  "Beadjoint Tab": {
+  "Double bead Tab": {
    "abcdefghijklmnopqrstuvwxyz": {
     "source_min_gap": 2.017,
     "ttf_min_gap": 1.998,
@@ -230,12 +230,12 @@
     "ttf_drift": 0.01,
     "width": 88.0
    },
-   "beadjoint": {
-    "source_min_gap": 2.018,
-    "ttf_min_gap": 2.017,
+   "double bead": {
+    "source_min_gap": 2.019,
+    "ttf_min_gap": 2.06,
     "ttf_gap_dev": 0.081,
-    "ttf_drift": 0.194,
-    "width": 69.69
+    "ttf_drift": 0.263,
+    "width": 89.28
    },
    "the quick brown fox jumps over the lazy dog": {
     "source_min_gap": 2.018,
@@ -301,7 +301,7 @@
     "width": 149.95
    }
   },
-  "Beadjoint Mono": {
+  "Double bead Mono": {
    "abcdefghijklmnopqrstuvwxyz": {
     "source_min_gap": 2.5,
     "ttf_min_gap": 2.5,
@@ -316,12 +316,12 @@
     "ttf_drift": 0.01,
     "width": 116.5
    },
-   "beadjoint": {
+   "double bead": {
     "source_min_gap": 3.0,
     "ttf_min_gap": 3.0,
-    "ttf_gap_dev": 0.01,
-    "ttf_drift": 0.01,
-    "width": 104.75
+    "ttf_gap_dev": 0.0,
+    "ttf_drift": 0.0,
+    "width": 129.0
    },
    "the quick brown fox jumps over the lazy dog": {
     "source_min_gap": 2.5,

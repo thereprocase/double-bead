@@ -28,5 +28,5 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 if __name__ == "__main__":
     host = socket.gethostbyname(socket.gethostname())
     server = http.server.ThreadingHTTPServer(("0.0.0.0", PORT), functools.partial(Handler, directory=str(DIST)))
-    print(f"Beadjoint site on http://{host}:{PORT}/ (all interfaces)", flush=True)
+    print(f"Double bead site on http://{host}:{PORT}/ (all interfaces)", flush=True)
     server.serve_forever()
