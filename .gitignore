@@ -1,0 +1,16 @@
+scratch/
+__pycache__/
+*.pyc
+*.log
+# regenerable slicing data and renders (demo/demo_plate.py, demo/demo_check.py, site/build_site.py)
+demo/slice*/
+demo/tune/
+demo/glyphs*/
+demo/last_*.txt
+demo/check-*.json
+!demo/check-r12w.json
+review/frodo-r3/sl/
+site/dist/
+demo/layout*.json
+demo/check.json
+*.pkl

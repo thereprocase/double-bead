@@ -1,0 +1,448 @@
+{
+"z": {
+"top": {
+"speck": 0.0046,
+"void_w": 0.0103,
+"per_layer": {
+"6": 0.0103,
+"7": 0.0089
+},
+"hair": 0.012,
+"thin_len": 1.107,
+"thin_min": 0.0763263,
+"thin_feat": [
+"Gap infill",
+"Inner wall"
+],
+"bleed_max": 0.05,
+"bite": 0.0196
+},
+"bottom": {
+"speck": 0.0119,
+"void_w": 0.0185,
+"per_layer": {
+"1": 0.0138,
+"2": 0.0185
+},
+"hair": 0.0204,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.054,
+"bite": 0.0193
+}
+},
+"w": {
+"top": {
+"speck": 0.0,
+"void_w": 0.0143,
+"per_layer": {
+"6": 0.0143,
+"7": 0.0108
+},
+"hair": 0.0155,
+"thin_len": 0.768,
+"thin_min": 0.161202,
+"thin_feat": [
+"Inner wall"
+],
+"bleed_max": 0.058,
+"bite": 0.0371
+},
+"bottom": {
+"speck": 0.002,
+"void_w": 0.0136,
+"per_layer": {
+"1": 0.0037,
+"2": 0.0136
+},
+"hair": 0.0147,
+"thin_len": 1.399,
+"thin_min": 0.145523,
+"thin_feat": [
+"Inner wall"
+],
+"bleed_max": 0.05,
+"bite": 0.0348
+}
+},
+"t": {
+"top": {
+"speck": 0.0,
+"void_w": 0.0072,
+"per_layer": {
+"6": 0.0072,
+"7": 0.0021
+},
+"hair": 0.0095,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.1,
+"bite": 0.0314
+},
+"bottom": {
+"speck": 0.0022,
+"void_w": 0.0039,
+"per_layer": {
+"1": 0.0036,
+"2": 0.0039
+},
+"hair": 0.0057,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.042,
+"bite": 0.0226
+}
+},
+"#": {
+"top": {
+"speck": 0.0,
+"void_w": 0.01,
+"per_layer": {
+"6": 0.01,
+"7": 0.0
+},
+"hair": 0.0112,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.14,
+"bite": 0.011
+},
+"bottom": {
+"speck": 0.004,
+"void_w": 0.0066,
+"per_layer": {
+"1": 0.0066,
+"2": 0.0051
+},
+"hair": 0.0081,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.057,
+"bite": 0.0143
+}
+},
+"f": {
+"top": {
+"speck": 0.0,
+"void_w": 0.0093,
+"per_layer": {
+"6": 0.0093,
+"7": 0.0
+},
+"hair": 0.0101,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.098,
+"bite": 0.032
+},
+"bottom": {
+"speck": 0.006,
+"void_w": 0.0108,
+"per_layer": {
+"1": 0.0068,
+"2": 0.0108
+},
+"hair": 0.0121,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.04,
+"bite": 0.0327
+}
+},
+"X": {
+"top": {
+"speck": 0.003,
+"void_w": 0.0195,
+"per_layer": {
+"6": 0.0165,
+"7": 0.0195
+},
+"hair": 0.0212,
+"thin_len": 0.643,
+"thin_min": 0.0875626,
+"thin_feat": [
+"Gap infill",
+"Inner wall"
+],
+"bleed_max": 0.05,
+"bite": 0.0182
+},
+"bottom": {
+"speck": 0.0125,
+"void_w": 0.0179,
+"per_layer": {
+"1": 0.0146,
+"2": 0.0179
+},
+"hair": 0.0194,
+"thin_len": 0.166,
+"thin_min": 0.186577,
+"thin_feat": [
+"Inner wall"
+],
+"bleed_max": 0.06,
+"bite": 0.0194
+}
+},
+"K": {
+"top": {
+"speck": 0.0034,
+"void_w": 0.0265,
+"per_layer": {
+"6": 0.0265,
+"7": 0.0051
+},
+"hair": 0.0277,
+"thin_len": 0.15,
+"thin_min": 0.104851,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.05,
+"bite": 0.02
+},
+"bottom": {
+"speck": 0.0205,
+"void_w": 0.0294,
+"per_layer": {
+"1": 0.0294,
+"2": 0.0269
+},
+"hair": 0.0303,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.05,
+"bite": 0.0237
+}
+},
+"N": {
+"top": {
+"speck": 0.0076,
+"void_w": 0.0112,
+"per_layer": {
+"6": 0.0112,
+"7": 0.0094
+},
+"hair": 0.014,
+"thin_len": 0.392,
+"thin_min": 0.0686158,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.051,
+"bite": 0.023
+},
+"bottom": {
+"speck": 0.0187,
+"void_w": 0.0223,
+"per_layer": {
+"1": 0.0223,
+"2": 0.0205
+},
+"hair": 0.0236,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.05,
+"bite": 0.0599
+}
+},
+"V": {
+"top": {
+"speck": 0.009,
+"void_w": 0.01,
+"per_layer": {
+"6": 0.009,
+"7": 0.01
+},
+"hair": 0.0116,
+"thin_len": 0.164,
+"thin_min": 0.0729915,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.058,
+"bite": 0.0148
+},
+"bottom": {
+"speck": 0.0156,
+"void_w": 0.0217,
+"per_layer": {
+"1": 0.0217,
+"2": 0.0186
+},
+"hair": 0.0231,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.054,
+"bite": 0.016
+}
+},
+"&": {
+"top": {
+"speck": 0.0,
+"void_w": 0.0188,
+"per_layer": {
+"6": 0.0188,
+"7": 0.0015
+},
+"hair": 0.0209,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.078,
+"bite": 0.023
+},
+"bottom": {
+"speck": 0.0011,
+"void_w": 0.0063,
+"per_layer": {
+"1": 0.0063,
+"2": 0.0042
+},
+"hair": 0.0081,
+"thin_len": 0.451,
+"thin_min": 0.196402,
+"thin_feat": [
+"Inner wall"
+],
+"bleed_max": 0.082,
+"bite": 0.0165
+}
+},
+"ł": {
+"top": {
+"speck": 0.0078,
+"void_w": 0.0113,
+"per_layer": {
+"6": 0.0103,
+"7": 0.0113
+},
+"hair": 0.0134,
+"thin_len": 0.708,
+"thin_min": 0.0852792,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.05,
+"bite": 0.0194
+},
+"bottom": {
+"speck": 0.0079,
+"void_w": 0.014,
+"per_layer": {
+"1": 0.01,
+"2": 0.014
+},
+"hair": 0.0152,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.041,
+"bite": 0.017
+}
+},
+"+": {
+"top": {
+"speck": 0.0,
+"void_w": 0.0015,
+"per_layer": {
+"6": 0.0015,
+"7": 0.0
+},
+"hair": 0.0025,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.089,
+"bite": 0.0078
+},
+"bottom": {
+"speck": 0.002,
+"void_w": 0.0051,
+"per_layer": {
+"1": 0.0051,
+"2": 0.0023
+},
+"hair": 0.008,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.036,
+"bite": 0.0056
+}
+},
+"y": {
+"top": {
+"speck": 0.0025,
+"void_w": 0.0221,
+"per_layer": {
+"6": 0.0221,
+"7": 0.0025
+},
+"hair": 0.0231,
+"thin_len": 0.522,
+"thin_min": 0.123419,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.05,
+"bite": 0.0162
+},
+"bottom": {
+"speck": 0.0109,
+"void_w": 0.0182,
+"per_layer": {
+"1": 0.0152,
+"2": 0.0182
+},
+"hair": 0.0187,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.051,
+"bite": 0.0206
+}
+},
+"k": {
+"top": {
+"speck": 0.0086,
+"void_w": 0.02,
+"per_layer": {
+"6": 0.02,
+"7": 0.0086
+},
+"hair": 0.0213,
+"thin_len": 0.222,
+"thin_min": 0.124345,
+"thin_feat": [
+"Gap infill"
+],
+"bleed_max": 0.045,
+"bite": 0.0168
+},
+"bottom": {
+"speck": 0.0164,
+"void_w": 0.0212,
+"per_layer": {
+"1": 0.0212,
+"2": 0.0184
+},
+"hair": 0.0238,
+"thin_len": 0.0,
+"thin_min": null,
+"thin_feat": [],
+"bleed_max": 0.072,
+"bite": 0.0163
+}
+}
+}
