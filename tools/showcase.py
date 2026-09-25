@@ -17,7 +17,7 @@ from beadjoint.readback import FontReader  # noqa: E402
 OUT = ROOT / "showcase"
 BODY, INK, CAP, GUIDE = (27, 29, 32), (244, 194, 13), (143, 153, 163), (48, 52, 58)
 SS = 3                                   # supersampling; polygons are drawn aliased, then downscaled
-FONTS = {k: FontReader(ROOT / "fonts" / f"{k}-Regular.ttf") for k in ("DoubleBead", "DoubleBeadTab", "DoubleBeadMono")}
+FONTS = {k: FontReader(ROOT / "fonts" / f"{k}-Regular.ttf") for k in ("BrewsterTechnical", "BrewsterTechnicalTab", "BrewsterTechnicalMono")}
 
 
 def ui(px, bold=False):
@@ -47,7 +47,7 @@ def text(d, font, s, ox, base, size_px):
     return max((g.bounds[2] for _, g, _ in placed), default=0) * sc
 
 
-def missing(s, font="DoubleBead"):
+def missing(s, font="BrewsterTechnical"):
     return sorted({c for c in s if c != " " and ord(c) not in FONTS[font].cmap})
 
 
@@ -92,7 +92,9 @@ def rows_image(name, title, rows, width=1800, pad=56):
 def hero():
     W, pad = 1800, 64
     im, d = canvas(W, 930)
-    text(d, "DoubleBead", "Double bead", pad, 250, 280)
+    title = "Brewster Technical"
+    width = max(g.bounds[2] for _, g, _ in FONTS["BrewsterTechnical"].layout(title))
+    text(d, "BrewsterTechnical", title, pad, 250, min(280, (W - 2 * pad) * 20 / width))
     caption(d, (pad + 6, 332), "Every stroke is exactly two extrusion widths: the slicer lays it as one wall loop "
             "passing itself. No hairlines, no gap fill, no one-bead strokes.", 20, (215, 219, 223))
     lines = [("The quick brown fox jumps over the lazy dog.", 76),
@@ -100,15 +102,15 @@ def hero():
              ('1/2" - 5/8" dep.   M6 × 1.0   45°   Ø12 ±0.1', 76)]
     y = 490
     for s, em in lines:
-        text(d, "DoubleBead", s, pad, y, em)
+        text(d, "BrewsterTechnical", s, pad, y, em)
         y += em * 1.4 + 6
-    caption(d, (pad + 6, 890), "Set with DoubleBead-Regular.ttf v1.200, kerning from the file. Size: Fusion Height = 14 × line "
+    caption(d, (pad + 6, 890), "Set with BrewsterTechnical-Regular.ttf v1.201, kerning from the file. Size: Fusion Height = 14 × line "
             "width (4.48 mm at 0.32 mm).", 15)
     save(im, "1-double-bead.png")
 
 
 def glyph_grid():
-    rd = FONTS["DoubleBead"]
+    rd = FONTS["BrewsterTechnical"]
     cols, cw, ch, s = 26, 70, 118, 3.2         # cell px, w -> px
     cells, col, row = [], 0, 0
     for c in CHARS:
@@ -120,7 +122,7 @@ def glyph_grid():
         col += span
     pad, head = 40, 64
     im, d = canvas(cols * cw + 2 * pad, (row + 1) * ch + head + pad)
-    caption(d, (pad, 22), f"Double bead: all {len(CHARS)} characters (ASCII, Latin-1, Latin Extended-A, "
+    caption(d, (pad, 22), f"Brewster Technical: all {len(CHARS)} characters (ASCII, Latin-1, Latin Extended-A, "
             "punctuation, fractions, arrows)", 22, (230, 232, 235), bold=True)
     lf = ui(10)
     for c, g, col, row, span in cells:
@@ -153,16 +155,16 @@ def languages():
             ("Welsh", "Parciais fy jac codi baw hud llawn dŵr ger tŷ Mabon. Ẁ ẁ Ẃ ẃ Ẅ ẅ Ỳ ỳ"),
             ("Catalan", "Jove xef, porti whisky amb quinze glaçons d’hidrogen, coi!")]
     rows_image("3-languages.png", "Accents: Latin-1 and Latin Extended-A, every language that uses them",
-               [(c, "DoubleBead", s, 50) for c, s in rows])
+               [(c, "BrewsterTechnical", s, 50) for c, s in rows])
 
 
 def symbols():
-    rows = [("ASCII punctuation and symbols", "DoubleBead", "! \" # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \\ ] ^ _ ` { | } ~", 60),
-            ("Latin-1 symbols", "DoubleBead", "¡ ¢ £ ¤ ¥ ¦ § ¨ © ª « ¬ ® ¯ ° ± ² ³ ´ µ ¶ · ¸ ¹ º » ¼ ½ ¾ ¿ × ÷", 60),
-            ("Typographic punctuation", "DoubleBead", "– — ‘ ’ ‚ “ ” „ † ‡ • … ‰ ‹ › ⁄ € ™ ′ ″ −", 60),
-            ("Maths, fractions, arrows", "DoubleBead", "Ω ⅓ ⅔ ⅛ ⅜ ⅝ ⅞ ← ↑ → ↓ ≤ ≥ ≈ ≠ ± × ÷ ° ¬ ƒ ₺", 60),
-            ("Figures, Double bead: proportional, for labels", "DoubleBead", "0123456789  3/16\"  11/32\"  1-1/8\"", 60),
-            ("Figures, Double bead Tab: every figure one width, for columns", "DoubleBeadTab", "0123456789  3/16\"  11/32\"  1-1/8\"", 60)]
+    rows = [("ASCII punctuation and symbols", "BrewsterTechnical", "! \" # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \\ ] ^ _ ` { | } ~", 60),
+            ("Latin-1 symbols", "BrewsterTechnical", "¡ ¢ £ ¤ ¥ ¦ § ¨ © ª « ¬ ® ¯ ° ± ² ³ ´ µ ¶ · ¸ ¹ º » ¼ ½ ¾ ¿ × ÷", 60),
+            ("Typographic punctuation", "BrewsterTechnical", "– — ‘ ’ ‚ “ ” „ † ‡ • … ‰ ‹ › ⁄ € ™ ′ ″ −", 60),
+            ("Maths, fractions, arrows", "BrewsterTechnical", "Ω ⅓ ⅔ ⅛ ⅜ ⅝ ⅞ ← ↑ → ↓ ≤ ≥ ≈ ≠ ± × ÷ ° ¬ ƒ ₺", 60),
+            ("Figures, Brewster Technical: proportional, for labels", "BrewsterTechnical", "0123456789  3/16\"  11/32\"  1-1/8\"", 60),
+            ("Figures, Brewster Technical Tab: every figure one width, for columns", "BrewsterTechnicalTab", "0123456789  3/16\"  11/32\"  1-1/8\"", 60)]
     rows_image("4-symbols.png", "Keyboard symbols, punctuation and figures", rows)
 
 
@@ -178,22 +180,22 @@ def advance(font, s):
 def families():
     W, pad, em = 1800, 56, 60
     im, d = canvas(W, 1400)
-    caption(d, (pad, pad - 8), "Three fonts: Double bead, Double bead Tab, Double bead Mono", 22, (230, 232, 235), bold=True)
+    caption(d, (pad, pad - 8), "Three fonts: Brewster Technical, Brewster Technical Tab, Brewster Technical Mono", 22, (230, 232, 235), bold=True)
     y = pad + 60
-    caption(d, (pad, y - 8), "Double bead: proportional, for labels", 15)
-    text(d, "DoubleBead", 'Masonry 1/2" - 5/8" dep.  Hex 4 mm  Torx T25', pad, y + 24 + em * 0.9, em)
+    caption(d, (pad, y - 8), "Brewster Technical: proportional, for labels", 15)
+    text(d, "BrewsterTechnical", 'Masonry 1/2" - 5/8" dep.  Hex 4 mm  Torx T25', pad, y + 24 + em * 0.9, em)
     y += 24 + em * 1.1 + 40
     values = ["6.35", "8.73", "15.88", "111.11", "20.64", "1.00"]
-    for i, (font, cap) in enumerate((("DoubleBead", "Double bead: figures vary in width, so a right-aligned column wobbles"),
-                                     ("DoubleBeadTab", "Double bead Tab: every figure 9 w wide, so the points line up"))):
+    for i, (font, cap) in enumerate((("BrewsterTechnical", "Brewster Technical: figures vary in width, so a right-aligned column wobbles"),
+                                     ("BrewsterTechnicalTab", "Brewster Technical Tab: every figure 9 w wide, so the points line up"))):
         x = pad + i * 820
         caption(d, (x, y - 8), cap, 15)
         right = x + 330
         for j, v in enumerate(values):
             text(d, font, v + " mm", right - advance(font, v) * em / 20, y + 24 + em * 0.75 + j * em * 1.05, em)
     y += 24 + len(values) * em * 1.05 + 50
-    caption(d, (pad, y - 8), "Double bead Mono: every glyph on one 12 w cell", 15)
-    text(d, "DoubleBeadMono", "if (x != 7) { y = a[i] * 2; }", pad, y + 24 + em * 0.75, em)
+    caption(d, (pad, y - 8), "Brewster Technical Mono: every glyph on one 12 w cell", 15)
+    text(d, "BrewsterTechnicalMono", "if (x != 7) { y = a[i] * 2; }", pad, y + 24 + em * 0.75, em)
     y += 24 + em * 1.0 + pad
     im = im.crop((0, 0, im.width, int(y * SS)))
     save(im, "5-families.png")
@@ -224,6 +226,6 @@ def printed():
 
 
 if __name__ == "__main__":
-    h = FONTS["DoubleBead"].outline(FONTS["DoubleBead"].cmap[ord("H")]).bounds
+    h = FONTS["BrewsterTechnical"].outline(FONTS["BrewsterTechnical"].cmap[ord("H")]).bounds
     assert abs(h[1] + 4) < 0.05 and abs(h[3] - 10) < 0.05, h   # cap line -4, baseline 10
     hero(); glyph_grid(); languages(); symbols(); families(); printed()

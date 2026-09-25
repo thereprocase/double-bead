@@ -1,4 +1,4 @@
-"""Build the Double bead browser site (static, served on the LAN by site/serve.py).
+"""Build the Brewster Technical browser site (static, served on the LAN by site/serve.py).
 
     cadpy site/build_site.py [--demo demo/check-owt0.json] [--crops demo/glyphs]
 
@@ -27,7 +27,7 @@ from beadjoint.verify import check_glyph, opening, raster  # noqa: E402
 
 arg = lambda n, d: sys.argv[sys.argv.index(n) + 1] if n in sys.argv else d
 DIST = HERE / "dist"
-VERSION = "1.1-dev"
+from beadjoint.fontfile import VERSION
 TH_RES = 16
 TH_COLORS = [(0.0, (139, 150, 161)), (2.3, (226, 163, 59)), (2.86, (226, 91, 79))]
 
@@ -86,6 +86,8 @@ def main():
         shutil.copy2(HERE / "template" / f, DIST / f)
     for f in (ROOT / "fonts").glob("*.ttf"):
         shutil.copy2(f, DIST / "fonts" / f.name)
+    shutil.copy2(ROOT / "OFL.txt", DIST / "OFL.txt")
+    shutil.copy2(ROOT / "OFL.txt", DIST / "fonts" / "OFL.txt")
     shutil.copy2(ROOT / "docs" / "SPEC.md", DIST / "SPEC.md")
     if (ROOT / "README.md").exists():
         shutil.copy2(ROOT / "README.md", DIST / "README.md")
@@ -147,9 +149,10 @@ def main():
         ],
         "log": read_log(),
         "files": [
-            {"name": "DoubleBead-Regular.ttf", "href": "fonts/DoubleBead-Regular.ttf", "text": "fully proportional, kerned: best for labels"},
-            {"name": "DoubleBeadTab-Regular.ttf", "href": "fonts/DoubleBeadTab-Regular.ttf", "text": "proportional letters, tabular figures: numbers stacked in a column"},
-            {"name": "DoubleBeadMono-Regular.ttf", "href": "fonts/DoubleBeadMono-Regular.ttf", "text": "monospace, 12 w cells"},
+            {"name": "OFL.txt", "href": "OFL.txt", "text": "SIL Open Font License 1.1 and Reserved Font Names"},
+            {"name": "BrewsterTechnical-Regular.ttf", "href": "fonts/BrewsterTechnical-Regular.ttf", "text": "fully proportional, kerned: best for labels"},
+            {"name": "BrewsterTechnicalTab-Regular.ttf", "href": "fonts/BrewsterTechnicalTab-Regular.ttf", "text": "proportional letters, tabular figures: numbers stacked in a column"},
+            {"name": "BrewsterTechnicalMono-Regular.ttf", "href": "fonts/BrewsterTechnicalMono-Regular.ttf", "text": "monospace, 12 w cells"},
             {"name": "README.md", "href": "README.md", "text": "sizing table, rules, slicer profile, how to build"},
             {"name": "SPEC.md", "href": "SPEC.md", "text": "the two-bead font specification the design follows"},
             {"name": "LOG.md", "href": "LOG.md", "text": "the design log, one entry per review round"},
