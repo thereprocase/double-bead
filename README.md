@@ -140,8 +140,4 @@ sets the legal terms.
 
 ---
 
-Designed by [Repro](https://github.com/thereprocase). **Fillaprint** is a
-family tribute. It was first called **Double bead**, for two lines of plastic
-laid side by side. An earlier name, **Beadjoint**, refers to a mortar-joint
-profile. That name remains on the Python package; `double-bead` remains in the
-repository URL.
+Designed by [Repro](https://github.com/thereprocase). **Fillaprint** is a real name from a real human who has better ideas than me. And the whole "proportional negative space" idea is mine, seemed like a good idea. The glyphs though? Pure vibes, good luck. 
