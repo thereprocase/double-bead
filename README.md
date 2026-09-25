@@ -19,8 +19,8 @@ Made for tool labels, dimensions, storage bins, and multicolour lettering on pri
 parts. Three TrueType families. Broad Latin coverage. Free for personal and
 commercial use under the [SIL Open Font License](OFL.txt).
 
-**[Get the fonts](#get-the-fonts)** Â· **[Choose a size](#size-it-from-your-line-width)** Â·
-**[Full character sheet](showcase/2-all-glyphs.png)** Â· **[License](#use-it-share-it-build-on-it)**
+**[Live showcase and type tester](https://thereprocase.github.io/brewster-technical/)** · **[Get the fonts](#get-the-fonts)** · **[Choose a size](#size-it-from-your-line-width)** ·
+**[Full character sheet](showcase/2-all-glyphs.png)** · **[License](#use-it-share-it-build-on-it)**
 
 ## Give the gaps room to print
 
@@ -77,25 +77,25 @@ alias mappings. Mono contains **362**: it narrows selected forms and omits 14 th
 do not fit its cell. Tab includes a figure space (U+2007) for aligned numbers.
 
 Coverage includes ASCII, Latin-1, Latin Extended-A, Romanian comma-below letters,
-additional Welsh accents, capital áºž, curly quotes, fractions, currency signs,
+additional Welsh accents, capital ẞ, curly quotes, fractions, currency signs,
 arrows, and selected mathematical symbols. It is a Latin-focused family; it does
 not provide complete Greek or Cyrillic alphabets.
 
-[View language specimens](showcase/3-languages.png) Â·
-[View symbols and figures](showcase/4-symbols.png) Â·
+[View language specimens](showcase/3-languages.png) ·
+[View symbols and figures](showcase/4-symbols.png) ·
 [View every drawn character](showcase/2-all-glyphs.png)
 
 ## Size it from your line width
 
-Start with **w**, the extrusion line width used for your textâ€”not simply the nozzle
+Start with **w**, the extrusion line width used for your text—not simply the nozzle
 diameter. At the font's reference size:
 
 | Measurement | Formula | w = 0.32 mm | w = 0.42 mm |
 | --- | --- | --- | --- |
-| Capital height / Fusion text Height | **14 Ã— w** | **4.48 mm** | **5.88 mm** |
-| Em-based font size | 20 Ã— w | 6.40 mm | 8.40 mm |
-| Nominal stroke / minimum clear gap | 2 Ã— w | 0.64 mm | 0.84 mm |
-| Default line pitch | 28 Ã— w | 8.96 mm | 11.76 mm |
+| Capital height / Fusion text Height | **14 × w** | **4.48 mm** | **5.88 mm** |
+| Em-based font size | 20 × w | 6.40 mm | 8.40 mm |
+| Nominal stroke / minimum clear gap | 2 × w | 0.64 mm | 0.84 mm |
+| Default line pitch | 28 × w | 8.96 mm | 11.76 mm |
 
 **Example:** for a 0.42 mm extrusion width, start with a 5.88 mm capital height.
 In Fusion, that is the text **Height**. In an application that sizes text by the em,
@@ -105,7 +105,7 @@ Scaling up gives the slicer more room and may add beads. Scaling down removes th
 two-bead margin. Keep the default line spacing for accents and descenders, and
 check counters in the sliced preview before printing.
 
-[Detailed sizing and the recorded slicer setup â†’](docs/PRINTING.md)
+[Detailed sizing and the recorded slicer setup →](docs/PRINTING.md)
 
 ## See the toolpaths
 
@@ -137,7 +137,7 @@ If you build on this font, please acknowledge its origins and describe what you
 changed. Contributions and fixes are welcome. That request is community guidance;
 the OFL itself permits both minor and substantial modifications.
 
-[Full license](OFL.txt) Â· [Plain-language licensing notes](docs/LICENSING.md)
+[Full license](OFL.txt) · [Plain-language licensing notes](docs/LICENSING.md)
 
 ---
 
