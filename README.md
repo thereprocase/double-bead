@@ -1,10 +1,16 @@
 # Brewster Technical
 
-**A typeface for small, readable FDM-printed labels.**
+**A typeface for FDM 3D printing.**
 
 ![Brewster Technical: three font families for FDM printing, with dimensions and symbols.](showcase/hero.png)
 
-Brewster Technical starts with the extrusion width. At its reference size, nominal strokes
+Brewster Technical gives the ink and the negative space proportional widths.
+Uniform stroke width alone does not make a font easy to print: the gaps need
+room for plastic, too. The aim is to reach the minimum printable size together,
+without oversized features wasting space while the smallest gaps run out of
+room for a line of plastic.
+
+At its reference size, nominal strokes
 are **two line widths thick**, and counters and clear gaps are designed to leave
 **at least two line widths of room**. The material between the letters matters as
 much as the letters themselves.

@@ -83,8 +83,8 @@ def hero():
     title = "Brewster Technical"
     width = max(g.bounds[2] for _, g, _ in FONTS["BrewsterTechnical"].layout(title))
     text(d,title,60,338,min(248, 1470 * 20 / width))
-    label(d,68,399,"Small labels. Room to print.",42,INK,True)
-    label(d,68,463,"Two line widths for the strokes. Space for the material between them.",27)
+    label(d,68,399,"Ink and negative space.",42,INK,True)
+    label(d,68,463,"1:1 minimum width for strokes and gaps.",27)
     line(d,[(64,550),(1536,550)])
     text(d,'M6 × 1.0   Ø12   ±0.1   45°',64,674,94)
     for x, title, detail in [(64,"PROPORTIONAL","Everyday labels"),(580,"TABULAR FIGURES","Measurements in columns"),
