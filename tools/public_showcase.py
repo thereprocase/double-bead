@@ -83,11 +83,11 @@ def hero():
     title = "Brewster Technical"
     width = max(g.bounds[2] for _, g, _ in FONTS["BrewsterTechnical"].layout(title))
     text(d,title,60,338,min(248, 1470 * 20 / width))
-    label(d,68,399,"Ink and negative space.",42,INK,True)
-    label(d,68,463,"1:1 minimum width for strokes and gaps.",27)
+    label(d,68,399,"Equal minimum widths for strokes and gaps.",42,INK,True)
+    label(d,68,463,"Nominal stroke width: 2w. Minimum clear gap: 2w.",27)
     line(d,[(64,550),(1536,550)])
     text(d,'M6 × 1.0   Ø12   ±0.1   45°',64,674,94)
-    for x, title, detail in [(64,"PROPORTIONAL","Everyday labels"),(580,"TABULAR FIGURES","Measurements in columns"),
+    for x, title, detail in [(64,"PROPORTIONAL","Variable letter widths"),(580,"TABULAR FIGURES","Measurements in columns"),
                              (1096,"MONOSPACE","One fixed character width")]:
         label(d,x,768,title,21,ACCENT,True)
         label(d,x,806,detail,23,INK)
@@ -96,8 +96,8 @@ def hero():
 
 def rule():
     im,d = canvas(1600,1000)
-    label(d,64,42,"THE TWO-BEAD RULE",23,ACCENT,True)
-    label(d,64,92,"Design the space, too.",48,INK,True)
+    label(d,64,42,"STROKE AND GAP DIMENSIONS",23,ACCENT,True)
+    label(d,64,92,"Equal minimum widths",48,INK,True)
     reader=FONTS["BrewsterTechnical"]
     geom=reader.outline(reader.cmap[ord("H")])
     x,base,scale=100,775,34
@@ -119,15 +119,15 @@ def rule():
     label(d,740,435,"Joins and crossings may be thicker.",26)
     label(d,740,545,"≥ 2w",78,ACCENT,True)
     label(d,740,653,"Minimum clear space",32,INK,True)
-    label(d,740,710,"Counters, gaps, dots, and accents need room.",26)
+    label(d,740,710,"Clearance inside and between letters.",26)
     label(d,64,948,"w = extrusion line width  /  H outline from the released TTF  /  native design scale",22)
     save(im,"two-bead-rule.png")
 
 
 def labels():
     im,d=canvas(1600,1100,INK)
-    label(d,64,42,"A WORKSHOP ALPHABET",23,"#EEB566",True)
-    label(d,64,94,"Labels, dimensions, and the everyday details.",37,PAPER,True)
+    label(d,64,42,"FONT SPECIMENS",23,"#EEB566",True)
+    label(d,64,94,"Labels and measurement symbols.",37,PAPER,True)
     rows=[("TOOL LABELS",'Hex 4 mm   Torx T25',"BrewsterTechnical"),
           ("MASONRY KEYS",'1/2" Jt.   5/8" dep.',"BrewsterTechnical"),
           ("METRIC + IMPERIAL",'M6 × 1.0   3/16"   45°',"BrewsterTechnicalTab"),

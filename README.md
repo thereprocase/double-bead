@@ -4,14 +4,13 @@
 
 ![Brewster Technical: three font families for FDM printing, with dimensions and symbols.](showcase/hero.png)
 
-A font can have even strokes and still be hard to print. The strokes fit. The
-small space inside an **e** does not. On a two-colour part, even the “empty” space
-is full of plastic.
+Uniform stroke width does not control the width of the gaps inside and between
+letters. When those gaps are narrower than the strokes, the background material
+can become too thin to print while the strokes are still printable.
 
-Brewster Technical gives the ink and the negative space a **1:1 minimum width**.
-Both start from the extrusion line width. The aim is for the small features to
-reach the print limit together. Large features should not waste space while a
-small gap runs out of room for plastic.
+Brewster Technical uses equal minimum widths for strokes and gaps. Both are
+based on the extrusion line width. This gives the two materials the same design
+minimum and reduces the label size needed to print the smallest features.
 
 Three TrueType families. Free for personal and commercial use.
 
@@ -19,25 +18,24 @@ Three TrueType families. Free for personal and commercial use.
 **[Get the fonts](#get-the-fonts)** · **[Choose a size](#choose-a-print-size)** ·
 **[License](#license)**
 
-## The gaps need plastic too
+## Equal minimum widths for strokes and gaps
 
 Let **w** be one extrusion line width. At the font's reference size:
 
 - A normal stroke is **2w** wide: two lines of plastic side by side.
 - A clear gap is **at least 2w** wide, including the spaces inside letters.
 - Joins can be thicker. Some gaps are wider. The **minimum widths** match;
-  this is not a promise of equal areas of ink and background.
+  the areas of ink and background can differ.
 
-This keeps a narrow gap from setting the size of the whole label. Rounded
-corners and thicker joins also help avoid thin wedges of space that the nozzle
-cannot fill.
+Rounded corners and thicker joins reduce thin wedges in the background material
+that would be narrower than the intended extrusion width.
 
 ![The two-bead rule: an H with 2w strokes and a 3w gap. The minimum clear gap is 2w.](showcase/two-bead-rule.png)
 
-The drawing gives the slicer room to work. Check the sliced preview before you
-print. A font file cannot set your extrusion width for you.
+Use the intended extrusion width when slicing, and check the resulting toolpaths
+before printing.
 
-## What it is for
+## Applications
 
 The first job was small, two-colour labels on masonry repointing keys. The font
 now has upper- and lowercase letters, accents, fractions, arrows, and measurement
@@ -98,14 +96,15 @@ enter that as the text **Height**. If your app sizes text by the em, use
 **8.40 mm**. These are two ways to size the same letters. If the app is unclear,
 convert an **H** to outlines and measure its height.
 
-Larger text gives the slicer more room and may add lines of plastic. Smaller
-text loses the two-line margin. Keep the default line spacing to leave room for
-accents and letters that extend below the baseline.
+Increasing the text size widens both strokes and gaps and may add extrusion
+paths. Below the reference size, their minimum widths are less than two
+extrusion widths. The default line spacing accommodates accents and letters
+that extend below the baseline.
 
 [Size calculator](https://thereprocase.github.io/brewster-technical/#size) ·
 [Print settings and sizing details](docs/PRINTING.md)
 
-## What the slicer sees
+## Recorded toolpaths
 
 ![Recorded OrcaSlicer Arachne toolpaths for letters and symbols.](showcase/6-sliced.png)
 
@@ -123,13 +122,12 @@ leave gaps, or cross an edge. See the [design specification](docs/SPEC.md) and
 
 The fonts use **SIL Open Font License 1.1**, with the family names reserved.
 
-- **Use them in commercial work.** Sell the parts, artwork, or documents you
-  make. Those outputs do not need the OFL or a credit line.
-- **Share and change the fonts.** Keep the copyright notice and OFL with any
+- **Commercial use.** You may sell parts, artwork, or documents made with the fonts. Those outputs do not need the OFL or a credit line.
+- **Redistribution and modification.** Keep the copyright notice and OFL with any
   font files you distribute. Changed fonts must also use the OFL.
-- **Rename changed versions.** To use the Reserved Font Names for a changed
+- **Reserved names.** To use the Reserved Font Names for a changed
   version, you need written permission.
-- **Do not sell the font by itself.** The OFL allows it to be bundled with software.
+- **Font sales.** The font cannot be sold by itself. The OFL allows it to be bundled with software.
 
 Small fixes and large changes are both allowed. If you build on this font,
 please say where it came from and what you changed. That is a request; the OFL
