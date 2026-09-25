@@ -3,7 +3,7 @@
 Copyright 2026 [Repro](https://github.com/thereprocase).
 
 The Brewster Technical font package is licensed under the **SIL Open Font License 1.1**.
-See [OFL.txt](OFL.txt) for the complete, controlling terms. This covers the TTFs,
+See [OFL.txt](../OFL.txt) for the complete, controlling terms. This covers the TTFs,
 glyph sources, accompanying build and specimen tools, and documentation supplied
 as part of this font package. Third-party dependencies retain their own licenses.
 
