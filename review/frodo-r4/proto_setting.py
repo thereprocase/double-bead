@@ -6,7 +6,8 @@
     missing(text)         - the characters a set would reject, with a readable message
 """
 import sys
-sys.path.insert(0, r"F:\code\beadjoint")
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import beadjoint.setting as st
 from beadjoint.charset import full_mixed, full_p
 from beadjoint.glyphs import FIGURES

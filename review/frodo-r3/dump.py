@@ -1,6 +1,6 @@
 """Dump the colour moves of one glyph on one layer: feature, width, from -> to (glyph-local mm).
 
-    cadpy dump.py --char "#" [--slice demo/slice] [--layout demo/layout.json] [--face top] [--layer N]
+    python dump.py --char "#" [--slice demo/slice] [--layout demo/layout.json] [--face top] [--layer N]
 """
 import sys
 sys.stdout.reconfigure(encoding="utf-8")
@@ -10,9 +10,9 @@ from pathlib import Path
 from shapely import affinity
 from shapely.geometry import shape
 
-ROOT = Path("F:/code/beadjoint")
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "demo"))
-sys.path.insert(0, "F:/code/masonry-keys")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "demo"))
 import demo_check as dc  # noqa: E402
 
 arg = lambda n, d: sys.argv[sys.argv.index(n) + 1] if n in sys.argv else d

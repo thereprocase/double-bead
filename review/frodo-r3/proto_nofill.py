@@ -1,7 +1,8 @@
 """Frodo r3 prototype: finish without the R0.5 inside fillet, i.e. soft(fill_pinches(raw)), vs the current finish.
 Labels: U+E100 + 2k = current glyph, U+E101 + 2k = variant."""
 import sys
-sys.path.insert(0, r"F:\code\beadjoint")
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.charset import full_p, raw_p
 from beadjoint.geom import soft, fill_pinches
 

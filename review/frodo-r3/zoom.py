@@ -15,9 +15,9 @@ from PIL import Image, ImageDraw
 from shapely import affinity
 from shapely.geometry import Point, shape
 
-ROOT = Path("F:/code/beadjoint")
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "demo"))
-sys.path.insert(0, "F:/code/masonry-keys")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "demo"))
 import demo_check as dc  # noqa: E402
 import json  # noqa: E402
 

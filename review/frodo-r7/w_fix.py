@@ -1,6 +1,7 @@
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from PIL import Image, ImageFilter
 from beadjoint.geom import S, BALL as B, finish, solve
 from beadjoint.glyphs import Glyph
@@ -9,7 +10,7 @@ from beadjoint import charset
 from beadjoint.specimen import draw_rows
 from beadjoint.verify import check_glyph
 
-R = r"F:\code\beadjoint\review\frodo-r7"
+R = str(Path(__file__).resolve().parents[2] / "review/frodo-r7")
 
 old = solve(lambda vy: S((1, 1, B), (3.125, vy), (5.25, 3.5), (7.375, vy), (9.5, 1, B)))
 # v2: raise the middle peak from y=3.5 to y=1.6 (near the top), closing most of the notch so w

@@ -1,4 +1,5 @@
-import sys; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, r"F:\code\beadjoint")
+import sys
+from pathlib import Path; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.glyphs import _raw_p
 from beadjoint.geom import widen, finish, D
 from beadjoint.verify import check_glyph
@@ -14,4 +15,4 @@ result = check_glyph(candidate)
 print("check_glyph:", result)
 
 draw_rows([("dotted-zero candidate", [[("0", candidate, 0.0)]])], scale=30,
-          path=r"F:\code\beadjoint\review\frodo-r6\dotted_zero.png")
+          path=str(Path(__file__).resolve().parents[2] / "review/frodo-r6/dotted_zero.png"))

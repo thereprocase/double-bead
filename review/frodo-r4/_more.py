@@ -1,12 +1,13 @@
 """Frodo r4: more real label strings, P TTF vs Tab TTF, window check on both."""
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.readback import FontReader
 from beadjoint.specimen import draw_rows
 from beadjoint.verify import line_gaps
-R = r"F:\code\beadjoint\review\frodo-r4"
-F = r"F:\code\beadjoint\fonts"
+R = str(Path(__file__).resolve().parents[2] / "review/frodo-r4")
+F = str(Path(__file__).resolve().parents[2] / "fonts")
 tab = FontReader(F + r"\BeadjointTab-Regular.ttf")
 prop = FontReader(F + r"\Beadjoint-Regular.ttf")
 S = ["M3×8 M3x8 M5×0.8", '3/8"-16 1/2"-13 #6-32', "10-32 UNF 1/4\" NPT", "-40°C +85°C 5°F",

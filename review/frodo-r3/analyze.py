@@ -1,6 +1,6 @@
 """Frodo r3: what a reader would actually see, per glyph and face, from a demo slice.
 
-    cadpy analyze.py [--slice demo/slice] [--layout demo/layout.json] [--out review/frodo-r3/an-full.json] [--chars ...]
+    python analyze.py [--slice demo/slice] [--layout demo/layout.json] [--out review/frodo-r3/an-full.json] [--chars ...]
 
   speck     largest area (mm^2) void on BOTH colour layers of the face (body colour shows through), after
             dropping hairline seams: a void pixel counts only if the void is at least MINW (--minw, default 0.05 mm) wide there
@@ -20,9 +20,9 @@ from scipy import ndimage
 from shapely import affinity
 from shapely.geometry import Point, shape
 
-ROOT = Path("F:/code/beadjoint")
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "demo"))
-sys.path.insert(0, "F:/code/masonry-keys")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "demo"))
 import demo_check as dc  # noqa: E402
 
 arg = lambda n, d: sys.argv[sys.argv.index(n) + 1] if n in sys.argv else d

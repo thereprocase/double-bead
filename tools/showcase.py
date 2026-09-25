@@ -1,6 +1,6 @@
 """Showcase images of the finished fonts, drawn from the built TTFs (kerning applied, as a shaper would).
 
-    cadpy tools/showcase.py        -> showcase/*.png
+    python tools/showcase.py        -> showcase/*.png
 """
 import sys
 sys.stdout.reconfigure(encoding="utf-8")

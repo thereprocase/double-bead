@@ -1,6 +1,6 @@
 from _lib import *
-exec(open(r"F:\code\beadjoint\review\frodo-letters\mw.py", encoding="utf-8").read().split("cand = {}")[0])
-exec(open(r"F:\code\beadjoint\review\frodo-letters\n.py", encoding="utf-8").read().split("cand = {")[0])
+exec(open(str(Path(__file__).resolve().parents[2] / "review/frodo-letters/mw.py"), encoding="utf-8").read().split("cand = {}")[0])
+exec(open(str(Path(__file__).resolve().parents[2] / "review/frodo-letters/n.py"), encoding="utf-8").read().split("cand = {")[0])
 NEW = {
     "N": N_edge(9),
     "M": M_v(5, r=2),

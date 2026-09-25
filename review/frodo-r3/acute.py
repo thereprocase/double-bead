@@ -8,7 +8,8 @@ beads bulging 0.10-0.14 mm past the outline).
     (a corner of angle a adds r^2 (cot(a/2) - (pi - a)/2): 90 deg 0.054, 70 deg 0.11, 60 deg 0.17 w^2)
 """
 import sys
-sys.path.insert(0, r"F:\code\beadjoint")
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from shapely.ops import unary_union
 
 from beadjoint import charset

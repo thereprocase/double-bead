@@ -1,6 +1,7 @@
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from PIL import Image, ImageFilter
 from beadjoint.geom import S, BALL as B, finish
 from beadjoint.glyphs import Glyph
@@ -9,7 +10,7 @@ from beadjoint import charset
 from beadjoint.specimen import draw_rows
 from beadjoint.verify import check_glyph
 
-R = r"F:\code\beadjoint\review\frodo-r7"
+R = str(Path(__file__).resolve().parents[2] / "review/frodo-r7")
 
 new_geom = finish(S((-1.5, 9, B), (1.5, 5, 2.5), (1.5, -3, 2), (6.5, -3, 2), (6.5, 5, 2.5), (9.5, 9, B)))
 assert check_glyph(new_geom)["ok"]

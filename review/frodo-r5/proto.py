@@ -1,4 +1,5 @@
-import sys; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, r"F:\code\beadjoint")
+import sys
+from pathlib import Path; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from shapely.ops import unary_union
 
@@ -81,5 +82,5 @@ for c in new_glyphs:
     print(f"{c!r:>4} pieces={len(pcs)} min_dist={dmin:.3f}")
 
 glyphs_for_grid = {f"n{i}_{c}": Glyph(c, f"X:{c}", finished[c]) for i, c in enumerate(new_glyphs)}
-grid(glyphs_for_grid, r"F:\code\beadjoint\review\frodo-r5\new_glyphs.png", cols=7, scale=16)
+grid(glyphs_for_grid, str(Path(__file__).resolve().parents[2] / "review/frodo-r5/new_glyphs.png"), cols=7, scale=16)
 print("wrote new_glyphs.png")

@@ -36,10 +36,26 @@ arguments. Without them, the site does not provide new slicing evidence.
 
 ## Slice validation
 
-`demo/demo_plate.py` and `demo/demo_check.py` build and slice a two-face coupon.
-They require OrcaSlicer and helpers/profile data from the author's companion
-masonry-keys project. They are not standalone commands for a fresh clone.
-The recorded tested profile is described in [PRINTING.md](PRINTING.md).
+`demo/demo_plate.py` and `demo/demo_check.py` build and slice a two-face coupon,
+then score how every glyph printed from the gcode. They need two things beyond
+`requirements.txt`:
+
+- [CadQuery](https://cadquery.readthedocs.io/) (`python -m pip install cadquery`) to
+  build the coupon solids.
+- [OrcaSlicer](https://github.com/SoftFever/OrcaSlicer). The scripts find it on `PATH`
+  as `orca-slicer`, or use the `ORCA_SLICER` environment variable.
+
+```sh
+python demo/demo_plate.py                  # slice demo/slice with demo/profiles
+python demo/demo_check.py                  # score it; writes demo/check.json
+demo/tune.sh classic wall_generator=classic   # slice + score one override set
+demo/tune_all.sh                           # a batch of wall variants, then rank them
+```
+
+`demo/slicer_support.py` holds the 3MF writing, OrcaSlicer lookup and gcode parsing.
+The starter presets in `demo/profiles/` are explained in its README. They are not the
+exact profile behind the committed showcase; that setup is recorded in
+[PRINTING.md](PRINTING.md).
 
 ## Repository layout
 

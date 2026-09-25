@@ -1,6 +1,7 @@
-import sys, traceback
+import sys
+from pathlib import Path, traceback
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.setting import mixed, kerned
 for s in ["12\u00a0mm", "12\u202fmm", "10k\u03a9", "3.2 \u03bcF", "\u2300 12", "1\u20111/8\"", "M3  x  8", " M3", "M3 ", "", "a\tb", "L1\nL2"]:
     for f in (mixed, kerned):

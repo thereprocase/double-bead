@@ -1,8 +1,9 @@
 """Frodo r4: share of label pairs that sit on the GAPMIN floor, for a few optical targets T."""
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
-sys.path.insert(0, r"F:\code\beadjoint\review\frodo-r4")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "review/frodo-r4"))
 import numpy as np
 import beadjoint.setting as st
 from _diverge import LABELS

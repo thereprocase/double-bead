@@ -1,4 +1,5 @@
-import sys; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, r"F:\code\beadjoint")
+import sys
+from pathlib import Path; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.setting import tabular
 from beadjoint.specimen import draw_rows
 
@@ -26,5 +27,5 @@ for cap, text in samples:
         continue
     rows.append((f"{cap}: {text}", [line]))
 
-draw_rows(rows, scale=10, path=r"F:\code\beadjoint\review\frodo-r6\mono_samples.png")
+draw_rows(rows, scale=10, path=str(Path(__file__).resolve().parents[2] / "review/frodo-r6/mono_samples.png"))
 print("done")

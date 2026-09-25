@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-cd /mnt/f/code/beadjoint
+cd "$(dirname "$0")/.."
 demo/tune.sh m50a30 min_bead_width=50% initial_layer_min_bead_width=50% wall_transition_angle=30 &
 demo/tune.sh m40 min_bead_width=40% initial_layer_min_bead_width=40% &
 demo/tune.sh m40a30 min_bead_width=40% initial_layer_min_bead_width=40% wall_transition_angle=30 &

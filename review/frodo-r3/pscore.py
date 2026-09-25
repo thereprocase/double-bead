@@ -1,7 +1,7 @@
 """Frodo r3: score prototype slices (review/frodo-r3/sl/an-<tag>.json) given on the command line."""
 import json, sys
 from pathlib import Path
-D = Path("/mnt/f/code/beadjoint/review/frodo-r3/sl")
+D = (Path(__file__).resolve().parents[2] / "review/frodo-r3/sl")
 for tag in sys.argv[1:]:
     a = json.loads((D / f"an-{tag}.json").read_text(encoding="utf-8"))
     out = []

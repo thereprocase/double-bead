@@ -1,4 +1,5 @@
-import sys; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, r"F:\code\beadjoint")
+import sys
+from pathlib import Path; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.setting import tabular, kerned
 
 for text in ["\u2300 25.00", "M3x0.5\u00b5", "abc\u4e2ddef"]:

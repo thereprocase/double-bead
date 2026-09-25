@@ -1,4 +1,5 @@
-import sys; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, r"F:\code\beadjoint")
+import sys
+from pathlib import Path; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.glyphs import _raw_p
 from beadjoint.geom import widen, finish, S, BALL as B
 from beadjoint.verify import check_glyph
@@ -23,4 +24,4 @@ print("check_glyph:", result)
 m = dict(full_m())
 m["0"] = type(m["O"])("0", "M:0", candidate)
 draw_rows([("slashed-zero candidate vs O", [tabular("0O0O", glyphs=m)])], scale=24,
-          path=r"F:\code\beadjoint\review\frodo-r6\slash_zero.png")
+          path=str(Path(__file__).resolve().parents[2] / "review/frodo-r6/slash_zero.png"))

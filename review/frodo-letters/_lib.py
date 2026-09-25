@@ -1,8 +1,9 @@
 """Frodo's prototyping helpers (review only; nothing here is imported by the build)."""
 import math
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from shapely import affinity
 from shapely.ops import unary_union
 from beadjoint.geom import S, So, D, Rect, finish, BALL as B, rotate180, solve
@@ -14,7 +15,7 @@ from beadjoint.charset import full_p, full_mixed
 from beadjoint.setting import mixed
 from beadjoint.specimen import draw_rows
 
-R = r"F:\code\beadjoint\review\frodo-letters"
+R = str(Path(__file__).resolve().parents[2] / "review/frodo-letters")
 P = full_p()
 
 

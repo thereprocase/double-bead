@@ -1,8 +1,9 @@
 """Frodo r3: & variants (raw strokes -> finished), drawn big with the fill_pinches additions shaded."""
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint\review\frodo-r3")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "review/frodo-r3"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from PIL import Image, ImageDraw
 from beadjoint.geom import BALL as B, S, So, D, soft, finish
 from beadjoint.charset import raw_p
@@ -34,4 +35,4 @@ for i, (k, raw) in enumerate(V.items()):
     r = check_glyph(fin)
     d.text((ox, oy + 12 * SC), f"& {k}  max {r['thickness']:.2f}w  thin {len(r['thin'])} isl {len(r['islands'])}", fill=(0, 0, 0))
     print(k, r["thickness"], r["at"], r["thin"], r["islands"])
-im.save(r"F:\code\beadjoint\review\frodo-r3\amp.png")
+im.save(str(Path(__file__).resolve().parents[2] / "review/frodo-r3/amp.png"))

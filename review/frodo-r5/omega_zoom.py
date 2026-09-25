@@ -1,4 +1,5 @@
-import sys; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, r"F:\code\beadjoint")
+import sys
+from pathlib import Path; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from beadjoint.geom import BALL as B, S, finish
 from beadjoint.glyphs import Glyph
@@ -14,4 +15,4 @@ for name, raw in variants.items():
     g = finish(raw)
     print(name, "bounds", [round(b, 2) for b in g.bounds])
     glyphs[name] = Glyph(name, f"X:{name}", g)
-grid(glyphs, r"F:\code\beadjoint\review\frodo-r5\omega_zoom.png", cols=3, scale=30)
+grid(glyphs, str(Path(__file__).resolve().parents[2] / "review/frodo-r5/omega_zoom.png"), cols=3, scale=30)

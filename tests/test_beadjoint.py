@@ -1,6 +1,6 @@
 """Fillaprint regression tests.
 
-    cadpy -m unittest discover -s tests      (from the repo root)
+    python -m unittest discover -s tests      (from the repo root)
 
 Covers the geometry primitives, the spec's reference results, the hard rules on every glyph of every
 set, the setting engine's line check, and the built TTFs (outlines and set lines read back).

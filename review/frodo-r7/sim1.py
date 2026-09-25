@@ -1,13 +1,14 @@
 """Frodo r7: legibility at print size. Render confusable groups + real labels at print scale (3 px/w),
 plain and print-simulated (ink grown 0.3w to mimic colour bleed, then Gaussian blur ~1px for squish/AA)."""
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from PIL import ImageFilter
 from beadjoint.setting import kerned, mixed
 from beadjoint.specimen import draw_rows
 
-R = r"F:\code\beadjoint\review\frodo-r7"
+R = str(Path(__file__).resolve().parents[2] / "review/frodo-r7")
 
 # groups: (caption, text, use_mixed)
 GROUPS = [

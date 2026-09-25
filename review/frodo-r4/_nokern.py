@@ -1,8 +1,9 @@
 """Frodo r4: what an app that ignores kerning (advances only) gets from the Tab TTF, vs the engine."""
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
-sys.path.insert(0, r"F:\code\beadjoint\review\frodo-r4")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "review/frodo-r4"))
 from beadjoint.setting import mixed
 from beadjoint.readback import FontReader
 from _diverge import LABELS, tab
@@ -11,7 +12,7 @@ class NoKern(FontReader):
     def pair(self, a, b):
         return 0
 
-nk = NoKern(r"F:\code\beadjoint\fonts\BeadjointTab-Regular.ttf")
+nk = NoKern(str(Path(__file__).resolve().parents[2] / "fonts/BeadjointTab-Regular.ttf"))
 if __name__ == "__main__":
     worst = []
     for text in LABELS:

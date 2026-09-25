@@ -1,7 +1,8 @@
 """Frodo r4: figure widths, figure-figure gaps in P (optical) vs Tab (9w cells), and letter reference gaps."""
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import numpy as np
 from beadjoint.charset import full_p, full_mixed
 from beadjoint.setting import off, cell_origin, CELL_F, _distance, _profile, BAND_FIG, BAND_X, T, DEPTH

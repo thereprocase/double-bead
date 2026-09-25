@@ -1,6 +1,7 @@
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from PIL import Image, ImageFilter
 from shapely import affinity
 from beadjoint.geom import S, BALL as B, finish
@@ -9,7 +10,7 @@ from beadjoint.setting import kerned
 from beadjoint.charset import full_p
 from beadjoint.specimen import draw_rows
 
-R = r"F:\code\beadjoint\review\frodo-r7"
+R = str(Path(__file__).resolve().parents[2] / "review/frodo-r7")
 
 # current Ω (latin.py:232)
 old = S((-0.5, 9, B), (1.5, 7, 1.5), (1.5, -3, 2), (6.5, -3, 2), (6.5, 7, 1.5), (8.5, 9, B))

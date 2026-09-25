@@ -1,8 +1,9 @@
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from fontTools.ttLib import TTFont
-f = TTFont(r"F:\code\beadjoint\fonts\BeadjointTab-Regular.ttf")
+f = TTFont(str(Path(__file__).resolve().parents[2] / "fonts/BeadjointTab-Regular.ttf"))
 cm = f.getBestCmap()
 want = {"NBSP": 0xA0, "thin sp": 0x2009, "narrow nbsp": 0x202F, "figure sp": 0x2007, "punct sp": 0x2008, "en sp": 0x2002,
         "micro": 0xB5, "greek mu": 0x3BC, "Omega": 0x3A9, "ohm": 0x2126, "diameter": 0x2300, "1/8": 0x215B, "3/8": 0x215C,

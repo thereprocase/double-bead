@@ -1,6 +1,7 @@
-import sys, time
+import sys
+from pathlib import Path, time
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.charset import full_mixed
 from beadjoint.setting import off
 G = full_mixed()

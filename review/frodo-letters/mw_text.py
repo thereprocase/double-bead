@@ -1,7 +1,7 @@
 from _lib import *
 import importlib.util
-exec(open(r"F:\code\beadjoint\review\frodo-letters\mw.py", encoding="utf-8").read().split("cand = {}")[0])
-exec(open(r"F:\code\beadjoint\review\frodo-letters\n.py", encoding="utf-8").read().split("cand = {")[0])
+exec(open(str(Path(__file__).resolve().parents[2] / "review/frodo-letters/mw.py"), encoding="utf-8").read().split("cand = {}")[0])
+exec(open(str(Path(__file__).resolve().parents[2] / "review/frodo-letters/n.py"), encoding="utf-8").read().split("cand = {")[0])
 N9 = finish(N_edge(9)); N85 = finish(N_edge(8.5))
 Mv4, Mv6 = finish(M_v(4)), finish(M_v(6))
 W2, W2V = finish(W_v(2)), finish(solve(lambda vy: S((1, -3, B), (3.3, vy, 1.0), (5.5, 0), (7.7, vy, 1.0), (10, -3, B)), lo=9.5, hi=20))

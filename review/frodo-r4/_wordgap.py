@@ -1,11 +1,12 @@
 """Frodo r4: gap across a space, engine vs Tab TTF, for every printable ASCII pair and overhang contexts."""
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import numpy as np
 from beadjoint.setting import mixed
 from beadjoint.readback import FontReader
-tab = FontReader(r"F:\code\beadjoint\fonts\BeadjointTab-Regular.ttf")
+tab = FontReader(str(Path(__file__).resolve().parents[2] / "fonts/BeadjointTab-Regular.ttf"))
 A = [chr(c) for c in range(0x21, 0x7F)]
 
 
