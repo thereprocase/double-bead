@@ -1,7 +1,7 @@
 Copyright 2026 Repro (https://github.com/thereprocase)
 
-Reserved Font Names: "Brewster Technical", "Brewster Technical Tab", "Brewster Technical Mono",
-"BrewsterTechnical", "BrewsterTechnicalTab", "BrewsterTechnicalMono".
+Reserved Font Names: "Fillaprint", "Fillaprint Tab", "Fillaprint Mono",
+"FillaprintTab", "FillaprintMono".
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

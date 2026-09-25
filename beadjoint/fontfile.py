@@ -1,9 +1,9 @@
 """Font files (spec 1 and 10), for the full character set.
 
-    Brewster Technical     set P, kerned: side bearings from the n-n gap, pair kerns from off()
-    Brewster Technical Tab   the mixed setting: P glyphs, figures on 9w cells (1 -> 1ₜ), no kerning between
+    Fillaprint     set P, kerned: side bearings from the n-n gap, pair kerns from off()
+    Fillaprint Tab   the mixed setting: P glyphs, figures on 9w cells (1 -> 1ₜ), no kerning between
                     figures, every other pair kerned from off()
-    Brewster Technical Mono  set M on 12w cells, no kerning (glyphs wider than 10w are left out)
+    Fillaprint Mono  set M on 12w cells, no kerning (glyphs wider than 10w are left out)
 
 1w = 50 font units, UPM 1000, Y_font = (10 - y) * 50: baseline 0, x-height 500, capitals and
 figures 700 (the OS/2 cap height, which is what Fusion's text Height sets), descender -200.
@@ -37,7 +37,7 @@ from .glyphs import FIGURES, pieces
 from .setting import CELL_F, CELL_M, WORD, off
 
 UNITS = 50
-VERSION = "1.201"
+VERSION = "0.100"
 KERN_DROP = 0.1
 LINE_MIN = 1.98
 GAP_TRIGGER, GAP_TARGET = 2.0, 2.02      # exceptions: below the trigger, push to the target
@@ -227,10 +227,10 @@ def build_font(path, family, glyphs, lsb, rsb, space, fea=None, legacy=None, mon
     fb.setupHorizontalMetrics(hm)
     win_asc, win_desc = round((10 - lo) * UNITS) + 20, round((hi - 10) * UNITS) + 20
     fb.setupHorizontalHeader(ascent=800, descent=-200, lineGap=400)     # r2: 28 w pitch keeps accents off the line above
-    ps = "".join(w[:1].upper() + w[1:] for w in family.split()) + "-Regular"      # BrewsterTechnicalTab-Regular
+    ps = "".join(w[:1].upper() + w[1:] for w in family.split()) + "-Regular"      # FillaprintTab-Regular
     fb.setupNameTable({"familyName": family, "styleName": "Regular", "uniqueFontIdentifier": f"{family} {VERSION}",
                        "fullName": family, "psName": ps, "version": f"Version {VERSION}", "description": DESCRIPTION})
-    fb.setupOS2(sTypoAscender=800, sTypoDescender=-200, sTypoLineGap=400, usWinAscent=win_asc, usWinDescent=win_desc,
+    fb.setupOS2(version=4, sTypoAscender=800, sTypoDescender=-200, sTypoLineGap=400, usWinAscent=win_asc, usWinDescent=win_desc,
                 sxHeight=500, sCapHeight=700, usWeightClass=400, achVendID="RPRO", fsSelection=0x40 | 0x80)
     fb.setupPost(isFixedPitch=1 if mono else 0)
     if fea:
@@ -293,8 +293,8 @@ def build_all(out_dir, log=print):
     from .licensing import LICENSE_TEXT
     (out_dir / "OFL.txt").write_text(LICENSE_TEXT + "\n", encoding="utf-8")
     report = {}
-    for family, fname, glyphs, cells in (("Brewster Technical", "BrewsterTechnical-Regular.ttf", full_p(), None),
-                                         ("Brewster Technical Tab", "BrewsterTechnicalTab-Regular.ttf", full_mixed(), CELL_F)):
+    for family, fname, glyphs, cells in (("Fillaprint", "Fillaprint-Regular.ttf", full_p(), None),
+                                         ("Fillaprint Tab", "FillaprintTab-Regular.ttf", full_mixed(), CELL_F)):
         left, right = side_reps(glyphs)
         lsb, rsb, half = metrics(glyphs, left, right, cells)
         no_kern = (lambda a, b: a in FIGURES and b in FIGURES) if cells else (lambda a, b: False)
@@ -313,5 +313,5 @@ def build_all(out_dir, log=print):
         log(family, r)
     m = full_m()
     lsb = {c: (CELL_M - g.width) / 2 for c, g in m.items()}
-    report["Brewster Technical Mono"] = build_font(out_dir / "BrewsterTechnicalMono-Regular.ttf", "Brewster Technical Mono", m, lsb, lsb, CELL_M, mono=True)
+    report["Fillaprint Mono"] = build_font(out_dir / "FillaprintMono-Regular.ttf", "Fillaprint Mono", m, lsb, lsb, CELL_M, mono=True)
     return report

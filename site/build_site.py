@@ -1,4 +1,4 @@
-"""Build the Brewster Technical browser site (static, served on the LAN by site/serve.py).
+"""Build the Fillaprint browser site (static, served on the LAN by site/serve.py).
 
     cadpy site/build_site.py [--demo demo/check-owt0.json] [--crops demo/glyphs]
 
@@ -150,9 +150,9 @@ def main():
         "log": read_log(),
         "files": [
             {"name": "OFL.txt", "href": "OFL.txt", "text": "SIL Open Font License 1.1 and Reserved Font Names"},
-            {"name": "BrewsterTechnical-Regular.ttf", "href": "fonts/BrewsterTechnical-Regular.ttf", "text": "fully proportional, kerned: best for labels"},
-            {"name": "BrewsterTechnicalTab-Regular.ttf", "href": "fonts/BrewsterTechnicalTab-Regular.ttf", "text": "proportional letters, tabular figures: numbers stacked in a column"},
-            {"name": "BrewsterTechnicalMono-Regular.ttf", "href": "fonts/BrewsterTechnicalMono-Regular.ttf", "text": "monospace, 12 w cells"},
+            {"name": "Fillaprint-Regular.ttf", "href": "fonts/Fillaprint-Regular.ttf", "text": "fully proportional, kerned: best for labels"},
+            {"name": "FillaprintTab-Regular.ttf", "href": "fonts/FillaprintTab-Regular.ttf", "text": "proportional letters, tabular figures: numbers stacked in a column"},
+            {"name": "FillaprintMono-Regular.ttf", "href": "fonts/FillaprintMono-Regular.ttf", "text": "monospace, 12 w cells"},
             {"name": "README.md", "href": "README.md", "text": "sizing table, rules, slicer profile, how to build"},
             {"name": "SPEC.md", "href": "SPEC.md", "text": "the two-bead font specification the design follows"},
             {"name": "LOG.md", "href": "LOG.md", "text": "the design log, one entry per review round"},

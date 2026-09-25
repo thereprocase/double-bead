@@ -1,20 +1,23 @@
-# Brewster Technical
+# Fillaprint
+
+**v0.1.0 beta — fine-tuning for release.** Font shapes, spacing, and print behavior may change before 1.0. A future Nerd Fonts launch is a target; this beta is not part of Nerd Fonts.
+
 
 **A typeface for FDM 3D printing. Strokes and gaps use the same minimum width.**
 
-![Brewster Technical: three font families for FDM printing, with dimensions and symbols.](showcase/hero.png)
+![Fillaprint: three font families for FDM printing, with dimensions and symbols.](showcase/hero.png)
 
 Uniform stroke width does not control the width of the gaps inside and between
 letters. When those gaps are narrower than the strokes, the background material
 can become too thin to print while the strokes are still printable.
 
-Brewster Technical uses equal minimum widths for strokes and gaps. Both are
+Fillaprint uses equal minimum widths for strokes and gaps. Both are
 based on the extrusion line width. This gives the two materials the same design
 minimum and reduces the label size needed to print the smallest features.
 
 Three TrueType families. Free for personal and commercial use.
 
-**[Try it in your browser](https://thereprocase.github.io/brewster-technical/)** ·
+**[Try it in your browser](https://thereprocase.github.io/fillaprint/)** ·
 **[Get the fonts](#get-the-fonts)** · **[Choose a size](#choose-a-print-size)** ·
 **[License](#license)**
 
@@ -50,11 +53,11 @@ specimens, not photos of printed parts.
 
 | Download | Use | Spacing |
 | --- | --- | --- |
-| [**Brewster Technical**](fonts/BrewsterTechnical-Regular.ttf?raw=true) | General labels | Letter widths vary; spacing adjusts between pairs |
-| [**Brewster Technical Tab**](fonts/BrewsterTechnicalTab-Regular.ttf?raw=true) | Numbers in columns | Letter widths vary; digits have equal widths |
-| [**Brewster Technical Mono**](fonts/BrewsterTechnicalMono-Regular.ttf?raw=true) | Fixed-width layouts | Every character uses a 12w cell |
+| [**Fillaprint**](fonts/Fillaprint-Regular.ttf?raw=true) | General labels | Letter widths vary; spacing adjusts between pairs |
+| [**Fillaprint Tab**](fonts/FillaprintTab-Regular.ttf?raw=true) | Numbers in columns | Letter widths vary; digits have equal widths |
+| [**Fillaprint Mono**](fonts/FillaprintMono-Regular.ttf?raw=true) | Fixed-width layouts | Every character uses a 12w cell |
 
-[Download all three fonts and the license as a ZIP](https://thereprocase.github.io/brewster-technical/downloads/BrewsterTechnical-1.201.zip).
+[Download all three fonts and the license as a ZIP](https://thereprocase.github.io/fillaprint/downloads/Fillaprint-0.1.0-beta.zip).
 
 Open a TTF file in your system's font installer. On Windows, you can also
 right-click it and choose **Install**. Restart your CAD or design app if the font
@@ -66,7 +69,7 @@ for the old Double bead and Beadjoint names. Read its options before running it.
 
 ![Proportional text, equal-width digits in columns, and fixed-width text.](showcase/5-families.png)
 
-Brewster Technical and Tab each have **376 drawn characters**, plus space and
+Fillaprint and Tab each have **376 drawn characters**, plus space and
 alternate character mappings. Mono has **362**. It narrows some shapes and leaves
 out 14 that do not fit its cell. Tab has a figure space (U+2007): a blank as wide
 as a digit.
@@ -101,7 +104,7 @@ paths. Below the reference size, their minimum widths are less than two
 extrusion widths. The default line spacing accommodates accents and letters
 that extend below the baseline.
 
-[Size calculator](https://thereprocase.github.io/brewster-technical/#size) ·
+[Size calculator](https://thereprocase.github.io/fillaprint/#size) ·
 [Print settings and sizing details](docs/PRINTING.md)
 
 ## Recorded toolpaths
@@ -137,7 +140,7 @@ sets the legal terms.
 
 ---
 
-Designed by [Repro](https://github.com/thereprocase). **Brewster Technical** is a
+Designed by [Repro](https://github.com/thereprocase). **Fillaprint** is a
 family tribute. It was first called **Double bead**, for two lines of plastic
 laid side by side. An earlier name, **Beadjoint**, refers to a mortar-joint
 profile. That name remains on the Python package; `double-bead` remains in the

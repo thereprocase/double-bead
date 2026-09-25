@@ -2,8 +2,8 @@
 (async function () {
   const $ = (id) => document.getElementById(id);
   const store = {
-    get(k, d) { try { const v = localStorage.getItem("brewstertechnical:" + k); return v === null ? d : v; } catch (e) { return d; } },
-    set(k, v) { try { localStorage.setItem("brewstertechnical:" + k, v); } catch (e) { /* storage blocked */ } },
+    get(k, d) { try { const v = localStorage.getItem("fillaprint:" + k); return v === null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem("fillaprint:" + k, v); } catch (e) { /* storage blocked */ } },
   };
   const [glyphs, summary] = await Promise.all([
     fetch("data/glyphs.json").then((r) => r.json()),

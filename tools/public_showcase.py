@@ -21,7 +21,7 @@ MUTED = "#586566"
 ACCENT = "#CE4F29"
 LINE = "#CECABD"
 FONTS = {name: FontReader(ROOT / "fonts" / f"{name}-Regular.ttf")
-         for name in ("BrewsterTechnical", "BrewsterTechnicalTab", "BrewsterTechnicalMono")}
+         for name in ("Fillaprint", "FillaprintTab", "FillaprintMono")}
 
 
 def ui(size, bold=False):
@@ -58,7 +58,7 @@ def shape(d, geom, x, base, scale, color=INK, bg=PAPER):
             d.polygon(pts(ring), fill=bg)
 
 
-def text(d, value, x, base, em, family="BrewsterTechnical", color=INK, bg=PAPER):
+def text(d, value, x, base, em, family="Fillaprint", color=INK, bg=PAPER):
     reader = FONTS[family]
     missing = {c for c in value if ord(c) not in reader.cmap}
     assert not missing, missing
@@ -80,8 +80,8 @@ def hero():
     label(d,64,40,"TYPE FOR FDM PRINTING",23,ACCENT,True)
     label(d,1190,40,"THREE FONT FAMILIES",20)
     line(d,[(64,95),(1536,95)])
-    title = "Brewster Technical"
-    width = max(g.bounds[2] for _, g, _ in FONTS["BrewsterTechnical"].layout(title))
+    title = "Fillaprint"
+    width = max(g.bounds[2] for _, g, _ in FONTS["Fillaprint"].layout(title))
     text(d,title,60,338,min(248, 1470 * 20 / width))
     label(d,68,399,"Equal minimum widths for strokes and gaps.",42,INK,True)
     label(d,68,463,"Nominal stroke width: 2w. Minimum clear gap: 2w.",27)
@@ -98,7 +98,7 @@ def rule():
     im,d = canvas(1600,1000)
     label(d,64,42,"STROKE AND GAP DIMENSIONS",23,ACCENT,True)
     label(d,64,92,"Equal minimum widths",48,INK,True)
-    reader=FONTS["BrewsterTechnical"]
+    reader=FONTS["Fillaprint"]
     geom=reader.outline(reader.cmap[ord("H")])
     x,base,scale=100,775,34
     for gy in range(-5,12):
@@ -128,11 +128,11 @@ def labels():
     im,d=canvas(1600,1100,INK)
     label(d,64,42,"FONT SPECIMENS",23,"#EEB566",True)
     label(d,64,94,"Labels and measurement symbols.",37,PAPER,True)
-    rows=[("TOOL LABELS",'Hex 4 mm   Torx T25',"BrewsterTechnical"),
-          ("MASONRY KEYS",'1/2" Jt.   5/8" dep.',"BrewsterTechnical"),
-          ("METRIC + IMPERIAL",'M6 × 1.0   3/16"   45°',"BrewsterTechnicalTab"),
-          ("ACCENTS + SYMBOLS",'Façade   Maß   Ø12 ±0.1',"BrewsterTechnical"),
-          ("FIXED-WIDTH LETTERING",'BIN 01   BAY 02   REV 03',"BrewsterTechnicalMono")]
+    rows=[("TOOL LABELS",'Hex 4 mm   Torx T25',"Fillaprint"),
+          ("MASONRY KEYS",'1/2" Jt.   5/8" dep.',"Fillaprint"),
+          ("METRIC + IMPERIAL",'M6 × 1.0   3/16"   45°',"FillaprintTab"),
+          ("ACCENTS + SYMBOLS",'Façade   Maß   Ø12 ±0.1',"Fillaprint"),
+          ("FIXED-WIDTH LETTERING",'BIN 01   BAY 02   REV 03',"FillaprintMono")]
     for i,(cap,value,family) in enumerate(rows):
         y=213+i*170
         label(d,64,y,cap,20,"#EEB566",True)

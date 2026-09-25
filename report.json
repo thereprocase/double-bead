@@ -63,7 +63,7 @@
   }
  },
  "fonts": {
-  "Brewster Technical": {
+  "Fillaprint": {
    "glyphs": 376,
    "win": [
     1120,
@@ -87,7 +87,7 @@
     "max_outline_deviation": 0.0231
    }
   },
-  "Brewster Technical Tab": {
+  "Fillaprint Tab": {
    "glyphs": 376,
    "win": [
     1120,
@@ -111,7 +111,7 @@
     "max_outline_deviation": 0.0231
    }
   },
-  "Brewster Technical Mono": {
+  "Fillaprint Mono": {
    "glyphs": 362,
    "win": [
     1120,
@@ -129,7 +129,7 @@
   }
  },
  "lines": {
-  "Brewster Technical": {
+  "Fillaprint": {
    "abcdefghijklmnopqrstuvwxyz": {
     "source_min_gap": 2.017,
     "ttf_min_gap": 1.998,
@@ -215,7 +215,7 @@
     "width": 149.7
    }
   },
-  "Brewster Technical Tab": {
+  "Fillaprint Tab": {
    "abcdefghijklmnopqrstuvwxyz": {
     "source_min_gap": 2.017,
     "ttf_min_gap": 1.998,
@@ -301,7 +301,7 @@
     "width": 149.95
    }
   },
-  "Brewster Technical Mono": {
+  "Fillaprint Mono": {
    "abcdefghijklmnopqrstuvwxyz": {
     "source_min_gap": 2.5,
     "ttf_min_gap": 2.5,

@@ -1,9 +1,9 @@
-# Building Brewster Technical
+# Building Fillaprint
 
 Run commands from the repository root with Python 3.12 or newer and these packages:
 
 ```sh
-python -m pip install shapely fontTools numpy scipy Pillow
+python -m pip install -r requirements.txt
 python build.py
 python -m unittest discover -s tests
 python tools/public_showcase.py
@@ -54,4 +54,20 @@ The recorded tested profile is described in [PRINTING.md](PRINTING.md).
 | `review/` | Design history and review evidence |
 
 The Python package retains the working name *Beadjoint*. The public family name
-is *Brewster Technical*.
+is *Fillaprint*.
+
+## Release versions
+
+The first Fillaprint release is **v0.1.0 beta**, with OpenType version **0.100**.
+Use immutable tagged releases and versioned ZIPs; do not replace an existing release's binaries.
+The family names stay Fillaprint, Fillaprint Tab, and Fillaprint Mono for compatible updates.
+Increment the release version and internal font revision for every changed build.
+For beta patches, v0.1.1 maps to 0.101; v0.2.0 maps to 0.200; v1.0.0 maps to 1.000.
+Record changes to outlines, advances, kerning, coverage, and print guidance in release notes.
+Users should replace the old installed fonts and restart their CAD/design application.
+Existing documents can reflow with a changed font; retain the matching release ZIP
+with a project or preserve final lettering as outlines when exact geometry matters.
+
+We are fine-tuning the beta for release and eventually targeting a Nerd Fonts launch.
+That requires separate patching and upstream review. Added icon glyphs must not be
+assumed to satisfy Fillaprint's two-bead print geometry.
