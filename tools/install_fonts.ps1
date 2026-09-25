@@ -1,9 +1,9 @@
-# Per-user install of the Double bead fonts (no admin): unload and unregister any earlier install
+# Per-user install of the Brewster Technical fonts (no admin): unload and unregister any earlier install
 # (including the Beadjoint-named ones up to v1.101), copy the current files to the user font folder under
 # a versioned name, register them in HKCU, load them into the session and broadcast WM_FONTCHANGE.
 # Programs that read the font list only at start (Fusion) need a restart to see a new version.
-#   powershell -NoProfile -ExecutionPolicy Bypass -File tools\install_fonts.ps1 -Version 1.200
-param([string]$Version = "1.200", [string]$Source = "F:\code\beadjoint\fonts")
+#   powershell -NoProfile -ExecutionPolicy Bypass -File tools\install_fonts.ps1 -Version 1.201
+param([string]$Version = "1.201", [string]$Source = (Join-Path $PSScriptRoot '..\fonts'))
 $dst = Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts'
 New-Item -ItemType Directory -Force -Path $dst | Out-Null
 $key = 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts'
@@ -14,7 +14,8 @@ Add-Type -Namespace W -Name F -MemberDefinition @'
 '@
 
 # the working name until v1.101: unload, unregister and delete those installs and any older versioned copies
-foreach ($legacy in 'Beadjoint (TrueType)', 'Beadjoint Tab (TrueType)', 'Beadjoint Mono (TrueType)') {
+foreach ($legacy in 'Beadjoint (TrueType)', 'Beadjoint Tab (TrueType)', 'Beadjoint Mono (TrueType)',
+                    'Double bead (TrueType)', 'Double bead Tab (TrueType)', 'Double bead Mono (TrueType)') {
   $old = (Get-ItemProperty -Path $key -Name $legacy -ErrorAction SilentlyContinue).$legacy
   if ($old) {
     [W.F]::RemoveFontResourceW($old) | Out-Null
@@ -28,7 +29,7 @@ Get-ChildItem -Path $dst -Filter 'v*-Beadjoint*-Regular.ttf' -ErrorAction Silent
   Write-Output ("deleted {0}" -f $_.Name)
 }
 
-$map = [ordered]@{ 'DoubleBead-Regular.ttf' = 'Double bead (TrueType)'; 'DoubleBeadTab-Regular.ttf' = 'Double bead Tab (TrueType)'; 'DoubleBeadMono-Regular.ttf' = 'Double bead Mono (TrueType)' }
+$map = [ordered]@{ 'BrewsterTechnical-Regular.ttf' = 'Brewster Technical (TrueType)'; 'BrewsterTechnicalTab-Regular.ttf' = 'Brewster Technical Tab (TrueType)'; 'BrewsterTechnicalMono-Regular.ttf' = 'Brewster Technical Mono (TrueType)' }
 foreach ($f in $map.Keys) {
   $target = Join-Path $dst ('v' + $Version + '-' + $f)
   $old = (Get-ItemProperty -Path $key -Name $map[$f] -ErrorAction SilentlyContinue).($map[$f])

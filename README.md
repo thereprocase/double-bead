@@ -1,182 +1,141 @@
-# Double bead
+# Brewster Technical
 
-**A font the slicer can't ruin.**
+**A typeface for small, readable FDM-printed labels.**
 
-![Double bead](showcase/1-double-bead.png)
+![Brewster Technical: three font families for FDM printing, with dimensions and symbols.](showcase/hero.png)
 
-Double bead is a typeface drawn for FDM printing, not for screens. It is drawn on the extrusion grid:
-every stroke is exactly **two extrusion widths** wide, and every gap, counter and hole is **at least two
-extrusion widths** wide. An Arachne slicer lays each stroke as one wall loop passing itself, and each
-gap prints as two clean beads of the other colour. There are no hairlines, no one-bead strokes, no gap
-fill, and no counters that close up into a blob.
+Brewster Technical starts with the extrusion width. At its reference size, nominal strokes
+are **two line widths thick**, and counters and clear gaps are designed to leave
+**at least two line widths of room**. The material between the letters matters as
+much as the letters themselves.
 
-It was drawn for the multi-colour labels on masonry repointing keys, small text on tools that has to
-read, and it grew into a full Latin font: **376 characters** in three families.
+Made for tool labels, dimensions, storage bins, and multicolour lettering on printed
+parts. Three TrueType families. Broad Latin coverage. Free for personal and
+commercial use under the [SIL Open Font License](OFL.txt).
 
-## Why this exists
+**[Get the fonts](#get-the-fonts)** · **[Choose a size](#size-it-from-your-line-width)** ·
+**[Full character sheet](showcase/2-all-glyphs.png)** · **[License](#use-it-share-it-build-on-it)**
 
-Ordinary fonts fail at small print sizes in predictable ways:
+## Give the gaps room to print
 
-- **Thin strokes** end up one bead wide, or the slicer drops them.
-- **Round strokes** get filled with gap-fill zig-zags.
-- **Counters close up**: e, a, 8 and B turn into blobs, because the slicer can't fit a bead of the
-  other colour into the gap.
+Small text can look good in CAD and lose its shape in the slicer. Thin strokes
+disappear, and the open spaces in letters such as **a**, **e**, **B**, and **8** can
+close up when there is no room for the surrounding material.
 
-That last one is the one that matters. Uniform stroke width is not new: single-line engraving fonts,
-OCR and DIN-style fonts, and stencil fonts all have it. What none of them guarantees is the
-**negative space**. In Double bead the space between strokes gets the same two-bead minimum as the
-strokes themselves. That is the difference between text you can read on a printed part and a
-yellow smudge.
+Brewster Technical treats those spaces as part of the design. Its rounded corners, open
+forms, and controlled spacing are built around a two-bead minimum. At crossings and
+tight joins, extra material is preferable to a tapering sliver of empty space.
 
-When the two rules conflict at a joint or crossing (X, K, N, filled pinches), the letter keeps extra
-ink rather than keeping a thin or tapering gap. A slightly heavy join still reads. A lost counter does
-not, and neither does colour that fails to bond because the gap tapered to nothing.
+![The two-bead rule: an H outline with 2w strokes and a 3w gap; the minimum clear-space rule is 2w.](showcase/two-bead-rule.png)
 
-![Sliced](showcase/6-sliced.png)
+This gives the slicer a useful starting geometry. It does not override your print
+settings: preview the toolpaths at the size and orientation you intend to print.
 
-*Orca Arachne toolpaths at 0.32 mm on the top face of the demo coupon. Yellow = colour beads,
-grey = body beads, blue = design outline.*
+## From workshop labels to a full character set
+
+The first job was lettering on masonry repointing keys: small, multicolour labels
+that needed to remain legible on a useful tool. The family grew to include upper-
+and lowercase letters, accented Latin characters, fractions, measurements, arrows,
+and everyday punctuation.
+
+![Specimens: tool names, masonry measurements, dimensions, accented words, and fixed-width labels.](showcase/labels.png)
+
+These are digital specimens rendered from the actual TTF outlines and kerning.
+
+## Get the fonts
+
+| Download | Best for | Spacing |
+| --- | --- | --- |
+| [**Brewster Technical**](fonts/BrewsterTechnical-Regular.ttf?raw=true) | Labels and general lettering | Proportional, kerned |
+| [**Brewster Technical Tab**](fonts/BrewsterTechnicalTab-Regular.ttf?raw=true) | Measurements and number columns | Proportional letters, equal-width digits |
+| [**Brewster Technical Mono**](fonts/BrewsterTechnicalMono-Regular.ttf?raw=true) | Fixed-width layouts | All characters on a 12w cell |
+
+Download a TTF and install it with your operating system's font installer. On
+Windows, right-click the file and choose **Install**; on macOS, open it in Font Book.
+On Linux, use your desktop's font manager. Restart CAD or design applications if
+the family does not appear immediately.
+
+When sharing the font files, include [OFL.txt](fonts/OFL.txt). The same license is
+also embedded in each TTF. No license notice is required on the parts or artwork
+you make with the font.
+
+For an existing Windows installation, the optional
+[installation script](tools/install_fonts.ps1) replaces older Brewster Technical
+installs and unregisters the former Double bead and Beadjoint names. See its
+parameters before running it.
+
+![Comparison of proportional lettering, tabular figures aligned in columns, and monospace text.](showcase/5-families.png)
+
+The proportional and Tab families contain **376 drawn characters**, plus space and
+alias mappings. Mono contains **362**: it narrows selected forms and omits 14 that
+do not fit its cell. Tab includes a figure space (U+2007) for aligned numbers.
+
+Coverage includes ASCII, Latin-1, Latin Extended-A, Romanian comma-below letters,
+additional Welsh accents, capital ẞ, curly quotes, fractions, currency signs,
+arrows, and selected mathematical symbols. It is a Latin-focused family; it does
+not provide complete Greek or Cyrillic alphabets.
+
+[View language specimens](showcase/3-languages.png) ·
+[View symbols and figures](showcase/4-symbols.png) ·
+[View every drawn character](showcase/2-all-glyphs.png)
 
 ## Size it from your line width
 
-The font is drawn in line widths (**w**). Take w from the line width your slicer uses for the outer wall
-and top surface. Then:
+Start with **w**, the extrusion line width used for your text—not simply the nozzle
+diameter. At the font's reference size:
 
-| What you set | Value | At w = 0.32 mm | At w = 0.42 mm |
-|---|---|---|---|
-| **Fusion text Height** (Fusion sizes text by cap height) | **14 × w** | **4.48 mm** | 5.88 mm |
-| Font size in programs that size by em (CadQuery, Inkscape, OpenSCAD, most slicers) | 20 × w | 6.40 mm | 8.40 mm |
-| Font size in points | 20 × w ÷ 0.3528 | 18.1 pt | 23.8 pt |
-| Stroke | 2 × w | 0.64 mm | 0.84 mm |
-| x-height | 10 × w | 3.20 mm | 4.20 mm |
-| Line pitch (the fonts' default) | 28 × w | 8.96 mm | 11.76 mm |
+| Measurement | Formula | w = 0.32 mm | w = 0.42 mm |
+| --- | --- | --- | --- |
+| Capital height / Fusion text Height | **14 × w** | **4.48 mm** | **5.88 mm** |
+| Em-based font size | 20 × w | 6.40 mm | 8.40 mm |
+| Nominal stroke / minimum clear gap | 2 × w | 0.64 mm | 0.84 mm |
+| Default line pitch | 28 × w | 8.96 mm | 11.76 mm |
 
-**That size is the minimum, not the only size.** The design is proportional, so scaling it up
-scales every stroke and every gap together. Nothing turns into a small detail inside a big letter,
-and bigger text is always safe. Smaller is never safe: the strokes drop under two beads.
+**Example:** for a 0.42 mm extrusion width, start with a 5.88 mm capital height.
+In Fusion, that is the text **Height**. In an application that sizes text by the em,
+use 8.40 mm instead. If unsure, convert an **H** to outlines and measure it.
 
-Fusion check (2026-09-23): sketch text "H" at Height 10 mm in Arial and Consolas measures exactly
-10.000 mm, so Height is the cap height. Double bead's cap height (OS/2 `sCapHeight`) is 700 units
-= 14 w.
+Scaling up gives the slicer more room and may add beads. Scaling down removes the
+two-bead margin. Keep the default line spacing for accents and descenders, and
+check counters in the sliced preview before printing.
 
-About the 28 w line pitch: it keeps accents, brackets and commas 2 w clear of the line above in any
-text (g over ( needs 22 w, p over Á 26.4 w, g over Å 28 w). 20 w is safe only for unaccented text
-without brackets, or descenders over capitals, such as two-line tool labels.
+[Detailed sizing and the recorded slicer setup →](docs/PRINTING.md)
 
-## The families
+## See the toolpaths
 
-![Families](showcase/5-families.png)
+![OrcaSlicer Arachne toolpaths for selected letters and symbols.](showcase/6-sliced.png)
 
-| File | Family | Use |
-|---|---|---|
-| `fonts/DoubleBead-Regular.ttf` | Double bead | Fully proportional and kerned. **Best for labels.** |
-| `fonts/DoubleBeadTab-Regular.ttf` | Double bead Tab | Tabular figures on 9 w cells, for numbers stacked in columns; U+2007 figure space aligns them. |
-| `fonts/DoubleBeadMono-Regular.ttf` | Double bead Mono | Monospace on 12 w cells. It uses narrow forms of æ œ Æ Œ ø Ø « » — Ĳ Ω, and leaves out the 14 glyphs still wider than 10 w (© ® ™ ‰, the fractions, ŉ). |
+This recorded visualization shows the top face of the demo coupon, sliced with
+OrcaSlicer's Arachne wall generator at **w = 0.32 mm**. Yellow is the lettering
+material, grey is the body material, blue is the design outline, and white marks
+areas without a bead on that layer. It is a toolpath render, not a photograph.
 
-Side bearings are never under 1 w, so even a program that ignores kerning keeps every pair of glyphs
-2 w apart. The kerning (GPOS, plus a legacy `kern` table for the ASCII pairs) tucks overhangs in
-pair by pair and keeps accents 2 w clear of their neighbours.
+The development tools check stroke geometry, spacing, and the outlines read back
+from the generated TTFs. The companion coupon workflow also measures sliced
+coverage, voids, and bleed. See the [construction specification](docs/SPEC.md) and
+[build instructions](docs/DEVELOPMENT.md) for the checks and their limits.
 
-### Coverage
+## Use it, share it, build on it
 
-A–Z and a–z, all ASCII symbols, Latin-1, Latin Extended-A, Romanian comma-below letters, Welsh
-ẁ ẃ ẅ ỳ, capital ẞ, dashes, curly quotes, primes, euro, lira, florin, trade mark, fractions (halves,
-thirds, quarters, eighths), superscripts, arrows, and ≤ ≥ ≈ ≠. That covers every common European
-keyboard layout and every Latin-script European language.
+Brewster Technical uses **SIL OFL 1.1**, with its family names reserved.
 
-![Languages](showcase/3-languages.png)
+- **Commercial use is welcome.** Use it on products, in client work, on websites,
+  and in documents. The work you create does not have to use the OFL.
+- **Modifications are welcome.** Keep the copyright notice and license with
+  distributed fonts; distribute derivative font software under the OFL.
+- **Keep the original identity clear.** Distributed modified versions must use
+  different names unless you have written permission to use the Reserved Font Names.
+- **Do not sell the font by itself.** The OFL permits bundling it with software.
 
-![Symbols](showcase/4-symbols.png)
+If you build on this font, please acknowledge its origins and describe what you
+changed. Contributions and fixes are welcome. That request is community guidance;
+the OFL itself permits both minor and substantial modifications.
 
-## Install
+[Full license](OFL.txt) · [Plain-language licensing notes](LICENSE.md)
 
-**Windows**, per user, no admin rights:
+---
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\install_fonts.ps1 -Version 1.200 -Source <repo>\fonts
-```
-
-The script:
-- installs the three TTFs under a versioned file name, registers them in HKCU and loads them into
-  the session;
-- removes earlier installs, including the ones under the old working name, Beadjoint.
-
-Restart programs that read the font list only at start (Fusion does).
-
-**Elsewhere:** install the three files in `fonts/` the usual way.
-
-## The rules
-
-- No ink narrower than 2 w anywhere.
-- No enclosed hole narrower than 2 w. Separate pieces (dots, accents) sit at least 2 w apart.
-- Negative-space pinches narrower than 2 w are filled. Inside and outside corners are rounded to
-  R0.5 w.
-- Wider spots (crossings, filled joints) are allowed; they print with extra beads or infill.
-- In a set line, every glyph is at least 2 w (1.98 after font rounding) from each of the next three.
-
-The full reproducible specification (units, guides, the Arachne bead model, the glyph construction,
-the three settings and the checks) is in [docs/SPEC.md](docs/SPEC.md).
-
-## Slicer profile
-
-The font assumes Arachne walls, with the minimum bead width low enough that a thick joint steps up
-to a third bead instead of leaving a void. The tested text profile, for a 0.3 mm nozzle declared as
-0.4 in the slicer (w = 0.32 mm), is:
-
-| Setting | Value |
-|---|---|
-| `wall_generator` | `arachne` |
-| `min_bead_width` | `50%` |
-| `initial_layer_min_bead_width` | `50%` |
-| `wall_transition_angle` | `45` |
-
-Transition length and filter deviation are scaled to the real nozzle. On other nozzles, keep the
-minimum bead width near 0.6 w and the transition angle at 45.
-
-## Build and verify
-
-The scripts need Python 3.12 with `shapely`, `fontTools`, `numpy`, `scipy` and `Pillow`. The
-commands below say `cadpy`: that is the author's wrapper for that Python on Windows, and any Python
-with those packages works.
-
-```sh
-cadpy build.py                             # fonts/*.ttf, specimen/*.png, report.json
-cadpy -m unittest discover -s tests        # regression tests (10 tests, about 2 minutes)
-cadpy tools/showcase.py                    # showcase/*.png, drawn from the built TTFs
-cadpy site/build_site.py                   # site/dist: browser specimen with a size calculator
-cadpy site/serve.py                        # serves site/dist on port 8765
-```
-
-`build.py` exits 1 unless every check passes:
-
-- **Every glyph** of the proportional and monospace sets, and the tabular 1: thickness ≤ 2.85 w and no
-  thin pieces. The spec's reference results reproduce: the maximum is 2.83 w, at the f and t
-  crossings.
-- **Outline read-back:** every outline read back from each TTF lies within 1.5 font units of its
-  source glyph.
-- **Set lines:** checked in all three settings, from the source geometry and from each TTF's own
-  metrics and kerning. Every neighbour pair is ≥ 1.98 w apart.
-- **Setting fidelity:** each TTF reproduces its setting engine, with every gap within 0.13 w.
-
-`demo/demo_plate.py` and `demo/demo_check.py` go one step further and slice every glyph at native
-size on a two-face coupon in OrcaSlicer. They report coverage, voids, bleed and single-bead strokes
-per glyph, with a bead-level render of each. These two scripts depend on OrcaSlicer and the
-companion masonry-keys project (3MF helpers and the text profile).
-
-## What's in here
-
-| Path | What |
-|---|---|
-| `beadjoint/` | Glyph geometry, accents and marks, the setting engine, the checks, and the TTF writer. It keeps the working name. |
-| `fonts/` | The built TTFs (v1.200). |
-| `docs/SPEC.md` | The two-bead font specification. |
-| `showcase/`, `specimen/` | Showcase images, a specimen and a stroke-thickness map. |
-| `site/` | Static browser specimen and size calculator. |
-| `demo/` | Slice-and-check tooling for the demo coupon. |
-| `review/` | The design log (`LOG.md`), one entry per review round, with the renders and print photos behind each decision. |
-
-## The name
-
-Every stroke is a double bead: two extrusions laid side by side. The working name was **Beadjoint**,
-because a bead is also a mortar-joint profile, and the first job was labelling masonry keys. The Python
-package and the design log still carry that name.
+Designed by [Repro](https://github.com/thereprocase). Previously called **Double
+bead**, after two extrusions laid side by side. The original working name,
+**Beadjoint**, also nods to a mortar-joint profile; it remains the name of the
+Python source package. The repository URL retains `double-bead`.
