@@ -1,4 +1,4 @@
-"""Double bead regression tests.
+"""Brewster Technical regression tests.
 
     cadpy -m unittest discover -s tests      (from the repo root)
 
@@ -94,7 +94,7 @@ class Setting(unittest.TestCase):
 
 class Fonts(unittest.TestCase):
     def test_set_lines_from_ttf(self):
-        for name in ("DoubleBead-Regular.ttf", "DoubleBeadTab-Regular.ttf"):
+        for name in ("BrewsterTechnical-Regular.ttf", "BrewsterTechnicalTab-Regular.ttf"):
             reader = FontReader(ROOT / "fonts" / name)
             for text in LINES:
                 gaps = line_gaps([(c, g) for c, g, _ in reader.layout(text)])
@@ -102,7 +102,7 @@ class Fonts(unittest.TestCase):
                 self.assertFalse(low, f"{name}: {text!r}")
 
     def test_outlines_follow_source(self):
-        reader = FontReader(ROOT / "fonts" / "DoubleBeadTab-Regular.ttf")
+        reader = FontReader(ROOT / "fonts" / "BrewsterTechnicalTab-Regular.ttf")
         from beadjoint.charset import glyph_name
         from shapely import affinity
         worst = 0.0
