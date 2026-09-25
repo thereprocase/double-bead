@@ -1,147 +1,146 @@
 # Brewster Technical
 
-**A typeface for FDM 3D printing.**
+**A typeface for FDM 3D printing. Strokes and gaps use the same minimum width.**
 
 ![Brewster Technical: three font families for FDM printing, with dimensions and symbols.](showcase/hero.png)
 
-Brewster Technical gives the ink and the negative space proportional widths.
-Uniform stroke width alone does not make a font easy to print: the gaps need
-room for plastic, too. The aim is to reach the minimum printable size together,
-without oversized features wasting space while the smallest gaps run out of
-room for a line of plastic.
+A font can have even strokes and still be hard to print. The strokes fit. The
+small space inside an **e** does not. On a two-colour part, even the “empty” space
+is full of plastic.
 
-At its reference size, nominal strokes
-are **two line widths thick**, and counters and clear gaps are designed to leave
-**at least two line widths of room**. The material between the letters matters as
-much as the letters themselves.
+Brewster Technical gives the ink and the negative space a **1:1 minimum width**.
+Both start from the extrusion line width. The aim is for the small features to
+reach the print limit together. Large features should not waste space while a
+small gap runs out of room for plastic.
 
-Made for tool labels, dimensions, storage bins, and multicolour lettering on printed
-parts. Three TrueType families. Broad Latin coverage. Free for personal and
-commercial use under the [SIL Open Font License](OFL.txt).
+Three TrueType families. Free for personal and commercial use.
 
-**[Live showcase and type tester](https://thereprocase.github.io/brewster-technical/)** · **[Get the fonts](#get-the-fonts)** · **[Choose a size](#size-it-from-your-line-width)** ·
-**[Full character sheet](showcase/2-all-glyphs.png)** · **[License](#use-it-share-it-build-on-it)**
+**[Try it in your browser](https://thereprocase.github.io/brewster-technical/)** ·
+**[Get the fonts](#get-the-fonts)** · **[Choose a size](#choose-a-print-size)** ·
+**[License](#license)**
 
-## Give the gaps room to print
+## The gaps need plastic too
 
-Small text can look good in CAD and lose its shape in the slicer. Thin strokes
-disappear, and the open spaces in letters such as **a**, **e**, **B**, and **8** can
-close up when there is no room for the surrounding material.
+Let **w** be one extrusion line width. At the font's reference size:
 
-Brewster Technical treats those spaces as part of the design. Its rounded corners, open
-forms, and controlled spacing are built around a two-bead minimum. At crossings and
-tight joins, extra material is preferable to a tapering sliver of empty space.
+- A normal stroke is **2w** wide: two lines of plastic side by side.
+- A clear gap is **at least 2w** wide, including the spaces inside letters.
+- Joins can be thicker. Some gaps are wider. The **minimum widths** match;
+  this is not a promise of equal areas of ink and background.
 
-![The two-bead rule: an H outline with 2w strokes and a 3w gap; the minimum clear-space rule is 2w.](showcase/two-bead-rule.png)
+This keeps a narrow gap from setting the size of the whole label. Rounded
+corners and thicker joins also help avoid thin wedges of space that the nozzle
+cannot fill.
 
-This gives the slicer a useful starting geometry. It does not override your print
-settings: preview the toolpaths at the size and orientation you intend to print.
+![The two-bead rule: an H with 2w strokes and a 3w gap. The minimum clear gap is 2w.](showcase/two-bead-rule.png)
 
-## From workshop labels to a full character set
+The drawing gives the slicer room to work. Check the sliced preview before you
+print. A font file cannot set your extrusion width for you.
 
-The first job was lettering on masonry repointing keys: small, multicolour labels
-that needed to remain legible on a useful tool. The family grew to include upper-
-and lowercase letters, accented Latin characters, fractions, measurements, arrows,
-and everyday punctuation.
+## What it is for
 
-![Specimens: tool names, masonry measurements, dimensions, accented words, and fixed-width labels.](showcase/labels.png)
+The first job was small, two-colour labels on masonry repointing keys. The font
+now has upper- and lowercase letters, accents, fractions, arrows, and measurement
+symbols. Use it for tool labels, bins, dimensions, and text on printed parts.
 
-These are digital specimens rendered from the actual TTF outlines and kerning.
+![Tool names, masonry measurements, dimensions, accented words, and fixed-width labels.](showcase/labels.png)
+
+These images use the actual font outlines and spacing. They are digital
+specimens, not photos of printed parts.
 
 ## Get the fonts
 
-| Download | Best for | Spacing |
+| Download | Use | Spacing |
 | --- | --- | --- |
-| [**Brewster Technical**](fonts/BrewsterTechnical-Regular.ttf?raw=true) | Labels and general lettering | Proportional, kerned |
-| [**Brewster Technical Tab**](fonts/BrewsterTechnicalTab-Regular.ttf?raw=true) | Measurements and number columns | Proportional letters, equal-width digits |
-| [**Brewster Technical Mono**](fonts/BrewsterTechnicalMono-Regular.ttf?raw=true) | Fixed-width layouts | All characters on a 12w cell |
+| [**Brewster Technical**](fonts/BrewsterTechnical-Regular.ttf?raw=true) | General labels | Letter widths vary; spacing adjusts between pairs |
+| [**Brewster Technical Tab**](fonts/BrewsterTechnicalTab-Regular.ttf?raw=true) | Numbers in columns | Letter widths vary; digits have equal widths |
+| [**Brewster Technical Mono**](fonts/BrewsterTechnicalMono-Regular.ttf?raw=true) | Fixed-width layouts | Every character uses a 12w cell |
 
-Download a TTF and install it with your operating system's font installer. On
-Windows, right-click the file and choose **Install**; on macOS, open it in Font Book.
-On Linux, use your desktop's font manager. Restart CAD or design applications if
-the family does not appear immediately.
+[Download all three fonts and the license as a ZIP](https://thereprocase.github.io/brewster-technical/downloads/BrewsterTechnical-1.201.zip).
 
-When sharing the font files, include [OFL.txt](fonts/OFL.txt). The same license is
-also embedded in each TTF. No license notice is required on the parts or artwork
-you make with the font.
+Open a TTF file in your system's font installer. On Windows, you can also
+right-click it and choose **Install**. Restart your CAD or design app if the font
+does not appear.
 
-For an existing Windows installation, the optional
-[installation script](tools/install_fonts.ps1) replaces older Brewster Technical
-installs and unregisters the former Double bead and Beadjoint names. See its
-parameters before running it.
+To replace an older Windows install, see the optional
+[installation script](tools/install_fonts.ps1). It can also remove registrations
+for the old Double bead and Beadjoint names. Read its options before running it.
 
-![Comparison of proportional lettering, tabular figures aligned in columns, and monospace text.](showcase/5-families.png)
+![Proportional text, equal-width digits in columns, and fixed-width text.](showcase/5-families.png)
 
-The proportional and Tab families contain **376 drawn characters**, plus space and
-alias mappings. Mono contains **362**: it narrows selected forms and omits 14 that
-do not fit its cell. Tab includes a figure space (U+2007) for aligned numbers.
+Brewster Technical and Tab each have **376 drawn characters**, plus space and
+alternate character mappings. Mono has **362**. It narrows some shapes and leaves
+out 14 that do not fit its cell. Tab has a figure space (U+2007): a blank as wide
+as a digit.
 
-Coverage includes ASCII, Latin-1, Latin Extended-A, Romanian comma-below letters,
-additional Welsh accents, capital ẞ, curly quotes, fractions, currency signs,
-arrows, and selected mathematical symbols. It is a Latin-focused family; it does
-not provide complete Greek or Cyrillic alphabets.
+The fonts cover ASCII, Latin-1, Latin Extended-A, Romanian comma-below letters,
+extra Welsh accents, capital ẞ, curly quotes, fractions, currency signs, arrows,
+and selected math symbols. They do not cover full Greek or Cyrillic alphabets.
 
-[View language specimens](showcase/3-languages.png) ·
-[View symbols and figures](showcase/4-symbols.png) ·
-[View every drawn character](showcase/2-all-glyphs.png)
+[All characters](showcase/2-all-glyphs.png) ·
+[Language samples](showcase/3-languages.png) ·
+[Symbols and figures](showcase/4-symbols.png)
 
-## Size it from your line width
+## Choose a print size
 
-Start with **w**, the extrusion line width used for your text—not simply the nozzle
-diameter. At the font's reference size:
+Use the **extrusion line width** set for the text in your slicer. This can differ
+from the nozzle diameter. Call it **w**.
 
 | Measurement | Formula | w = 0.32 mm | w = 0.42 mm |
 | --- | --- | --- | --- |
 | Capital height / Fusion text Height | **14 × w** | **4.48 mm** | **5.88 mm** |
 | Em-based font size | 20 × w | 6.40 mm | 8.40 mm |
-| Nominal stroke / minimum clear gap | 2 × w | 0.64 mm | 0.84 mm |
-| Default line pitch | 28 × w | 8.96 mm | 11.76 mm |
+| Normal stroke / minimum clear gap | 2 × w | 0.64 mm | 0.84 mm |
+| Default distance between baselines | 28 × w | 8.96 mm | 11.76 mm |
 
-**Example:** for a 0.42 mm extrusion width, start with a 5.88 mm capital height.
-In Fusion, that is the text **Height**. In an application that sizes text by the em,
-use 8.40 mm instead. If unsure, convert an **H** to outlines and measure it.
+For a **0.42 mm** line width, start with **5.88 mm** capital letters. In Fusion,
+enter that as the text **Height**. If your app sizes text by the em, use
+**8.40 mm**. These are two ways to size the same letters. If the app is unclear,
+convert an **H** to outlines and measure its height.
 
-Scaling up gives the slicer more room and may add beads. Scaling down removes the
-two-bead margin. Keep the default line spacing for accents and descenders, and
-check counters in the sliced preview before printing.
+Larger text gives the slicer more room and may add lines of plastic. Smaller
+text loses the two-line margin. Keep the default line spacing to leave room for
+accents and letters that extend below the baseline.
 
-[Detailed sizing and the recorded slicer setup →](docs/PRINTING.md)
+[Size calculator](https://thereprocase.github.io/brewster-technical/#size) ·
+[Print settings and sizing details](docs/PRINTING.md)
 
-## See the toolpaths
+## What the slicer sees
 
-![OrcaSlicer Arachne toolpaths for selected letters and symbols.](showcase/6-sliced.png)
+![Recorded OrcaSlicer Arachne toolpaths for letters and symbols.](showcase/6-sliced.png)
 
-This recorded visualization shows the top face of the demo coupon, sliced with
-OrcaSlicer's Arachne wall generator at **w = 0.32 mm**. Yellow is the lettering
-material, grey is the body material, blue is the design outline, and white marks
-areas without a bead on that layer. It is a toolpath render, not a photograph.
+This is the top face of a test piece, sliced with OrcaSlicer's Arachne wall
+generator at **w = 0.32 mm**. Yellow is letter plastic. Grey is body plastic.
+Blue is the design outline. White marks areas with no line of plastic on that
+layer. This is a toolpath render, not a photo.
 
-The development tools check stroke geometry, spacing, and the outlines read back
-from the generated TTFs. The companion coupon workflow also measures sliced
-coverage, voids, and bleed. See the [construction specification](docs/SPEC.md) and
+The build tools check stroke shapes, spacing, and outlines read back from the
+TTFs. The test-piece tools also measure where sliced paths fill the design,
+leave gaps, or cross an edge. See the [design specification](docs/SPEC.md) and
 [build instructions](docs/DEVELOPMENT.md) for the checks and their limits.
 
-## Use it, share it, build on it
+## License
 
-Brewster Technical uses **SIL OFL 1.1**, with its family names reserved.
+The fonts use **SIL Open Font License 1.1**, with the family names reserved.
 
-- **Commercial use is welcome.** Use it on products, in client work, on websites,
-  and in documents. The work you create does not have to use the OFL.
-- **Modifications are welcome.** Keep the copyright notice and license with
-  distributed fonts; distribute derivative font software under the OFL.
-- **Keep the original identity clear.** Distributed modified versions must use
-  different names unless you have written permission to use the Reserved Font Names.
-- **Do not sell the font by itself.** The OFL permits bundling it with software.
+- **Use them in commercial work.** Sell the parts, artwork, or documents you
+  make. Those outputs do not need the OFL or a credit line.
+- **Share and change the fonts.** Keep the copyright notice and OFL with any
+  font files you distribute. Changed fonts must also use the OFL.
+- **Rename changed versions.** To use the Reserved Font Names for a changed
+  version, you need written permission.
+- **Do not sell the font by itself.** The OFL allows it to be bundled with software.
 
-If you build on this font, please acknowledge its origins and describe what you
-changed. Contributions and fixes are welcome. That request is community guidance;
-the OFL itself permits both minor and substantial modifications.
+Small fixes and large changes are both allowed. If you build on this font,
+please say where it came from and what you changed. That is a request; the OFL
+sets the legal terms.
 
-[Full license](OFL.txt) · [Plain-language licensing notes](docs/LICENSING.md)
+[Full license](OFL.txt) · [License explained](docs/LICENSING.md)
 
 ---
 
-Designed by [Repro](https://github.com/thereprocase). Previously called **Double
-bead**, after two extrusions laid side by side. The original working name,
-**Beadjoint**, also nods to a mortar-joint profile; it remains the name of the
-Python source package. The repository URL retains `double-bead`.
+Designed by [Repro](https://github.com/thereprocase). **Brewster Technical** is a
+family tribute. It was first called **Double bead**, for two lines of plastic
+laid side by side. An earlier name, **Beadjoint**, refers to a mortar-joint
+profile. That name remains on the Python package; `double-bead` remains in the
+repository URL.
