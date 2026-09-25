@@ -1,8 +1,9 @@
 """Frodo's setting prototype: setting.off() plus a stacked-pair guard, and word spaces measured
 optically (side bearings against n) instead of bbox ink-to-ink. Mirrors setting.kerned/mixed."""
 import sys
+from pathlib import Path
 from functools import lru_cache
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import numpy as np
 from beadjoint.charset import full_mixed, full_p
 from beadjoint.glyphs import FIGURES

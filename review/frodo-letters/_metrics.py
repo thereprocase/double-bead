@@ -1,7 +1,8 @@
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 from fontTools.ttLib import TTFont
-f = TTFont(r"F:\code\beadjoint\fonts\Beadjoint-Regular.ttf")
+f = TTFont(str(Path(__file__).resolve().parents[2] / "fonts/Beadjoint-Regular.ttf"))
 h, o, head = f["hhea"], f["OS/2"], f["head"]
 print("hhea asc/desc/gap", h.ascent, h.descent, h.lineGap, "| win asc/desc", o.usWinAscent, o.usWinDescent, "| head yMin/yMax", head.yMin, head.yMax)
 glyf = f["glyf"]; cmap = f.getBestCmap()

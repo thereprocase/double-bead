@@ -1,6 +1,7 @@
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.geom import finish
 from beadjoint.verify import check_glyph
 from beadjoint.glyphs import Glyph, pieces
@@ -9,7 +10,7 @@ from beadjoint.sheet import grid
 import proto_glyphs as pg
 from _ctx import with_, render
 from beadjoint.setting import mixed
-R = r"F:\code\beadjoint\review\frodo-symbols"
+R = str(Path(__file__).resolve().parents[2] / "review/frodo-symbols")
 P = pg.proposals_all()
 now = full_mixed()
 cells = {}

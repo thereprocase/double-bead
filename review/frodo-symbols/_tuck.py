@@ -1,11 +1,12 @@
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from functools import lru_cache
 from beadjoint.charset import full_mixed
 import proto_setting as ps
 from _ctx import render
-R = r"F:\code\beadjoint\review\frodo-symbols"
+R = str(Path(__file__).resolve().parents[2] / "review/frodo-symbols")
 G = full_mixed()
 text = ["jar, jig; far. r: P. F. L' T. 7, y, Ty. \"r\"", "the car, the bar; P.S. Jt. dep. Fig. 7."]
 rows = [("now + stack guard", [ps.mixed2(t) for t in text])]

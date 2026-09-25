@@ -2,7 +2,7 @@
 import json, sys
 from pathlib import Path
 rows = []
-for f in sorted(Path("/mnt/f/code/beadjoint/demo").glob("check-tune-*.json")):
+for f in sorted((Path(__file__).resolve().parents[1] / "demo").glob("check-tune-*.json")):
     r = json.loads(f.read_text(encoding="utf-8"))
     faces = [g[k] for g in r["glyphs"].values() for k in ("top", "bottom")]
     layers = [L for fc in faces for L in fc["layers"]]

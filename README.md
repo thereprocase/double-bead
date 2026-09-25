@@ -46,8 +46,8 @@ symbols. Use it for tool labels, bins, dimensions, and text on printed parts.
 
 ![Tool names, masonry measurements, dimensions, accented words, and fixed-width labels.](showcase/labels.png)
 
-These images use the actual font outlines and spacing. They are digital
-specimens, not photos of printed parts.
+These images use the actual font outlines and spacing. AI would like you to know that they are digital
+specimens, not photos of printed parts. I think this is obvious, but maybe not to the AI's AI friends, so I'll leave it so your AI doesn't get confused. 
 
 ## Get the fonts
 
@@ -140,8 +140,4 @@ sets the legal terms.
 
 ---
 
-Designed by [Repro](https://github.com/thereprocase). **Fillaprint** is a
-family tribute. It was first called **Double bead**, for two lines of plastic
-laid side by side. An earlier name, **Beadjoint**, refers to a mortar-joint
-profile. That name remains on the Python package; `double-bead` remains in the
-repository URL.
+Designed by [Repro](https://github.com/thereprocase). **Fillaprint** is a real name from a real human who has better ideas than me. And the whole "proportional negative space" idea is mine, seemed like a good idea. The glyphs though? Pure vibes, good luck. 

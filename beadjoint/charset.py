@@ -12,7 +12,7 @@ from shapely import affinity
 
 from . import glyphs as spec
 from . import latin, marks
-from .geom import BALL as B, D, S, finish
+from .geom import BALL as B, D, DOT, S, finish
 
 EXTRA = "–—‘’‚“”„†‡•…‰‹›⁄€™′″−ȘșȚțȷ" + "ˆˇ˘˙˚˛˜˝" + "Ω⅛⅜⅝⅞←↑→↓≤≥≈" + "ẀẁẂẃẄẅỲỳ₺ƒẞ≠⅓⅔"   # r5, r12
 CHARS = ([chr(c) for c in range(0x21, 0x7F)] + [chr(c) for c in range(0xA1, 0x100) if c != 0xAD]
@@ -26,7 +26,7 @@ MONO_MAX = 10.0                                    # ink width that fits a 12w c
 
 def _standalone(name):
     return marks.place_above(marks.SHAPES[name], marks.SHAPES[name].bounds[2] / 2 + 1, marks.ABOVE_LOW) \
-        if name != "dot" else D((1, -3))
+        if name != "dot" else D((1.5, -3.5), DOT)
 
 
 def _extras():
@@ -91,6 +91,8 @@ def full_m():
     base["w"] = latin.square_w()
     base["ı"] = S((2, 1, B), (4.5, 1, 0), (4.5, 9)) | S((1, 9), (8, 9))
     base["ȷ"] = S((3, 1, B), (6, 1, 0), (6, 13), (1, 13, B))
+    # Three DOT-size dots with 2w gaps need 13w of ink, past the 10w cell; mono keeps 2w dots here.
+    base["…"] = D((1, 9)) | D((5, 9)) | D((9, 9))
     fin = _assemble(base, anchors={"ı": 4.5, "ȷ": 6.0, "l": 4.5}, caron_above=True)
     out = {}
     for c in CHARS:

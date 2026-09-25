@@ -1,8 +1,9 @@
 """Frodo's symbol prototypes (raw geometry in the latin.py notation), checked and drawn."""
 import math
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from shapely.ops import unary_union
 from beadjoint.geom import S, So, D, finish, rotate180, BALL as B
 from beadjoint.latin import diagonal, mirror_x, shift, squeeze
@@ -10,7 +11,7 @@ from beadjoint.verify import check_glyph
 from beadjoint.glyphs import Glyph, pieces
 from beadjoint.charset import full_mixed
 
-R = r"F:\code\beadjoint\review\frodo-symbols"
+R = str(Path(__file__).resolve().parents[2] / "review/frodo-symbols")
 
 
 def spokes(c, n, length, start_deg=-90.0):

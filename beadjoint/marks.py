@@ -9,7 +9,7 @@ import unicodedata
 
 from shapely import affinity
 
-from .geom import BALL as B, D, Rect, S, So
+from .geom import BALL as B, D, DOT, Rect, S, So
 
 ABOVE_LOW, ABOVE_HIGH, BELOW_TOP = -2.0, -6.0, 12.0
 ASCENDER_LETTERS = set("bdhklt")
@@ -22,8 +22,8 @@ SHAPES = {
     "breve": S((0, 0, B), (0, 2.5, 2.4), (5, 2.5, 2.4), (5, 0, B)),   # r2: half circle (r 2.5 would zero the ends)
     "tilde": S((0, 2, B), (2, 0), (4, 2), (6, 0, B)),
     "macron": S((0, 0), (5, 0)),
-    "dot": D((0, 0)),
-    "dieresis": D((0, 0)) | D((4, 0)),
+    "dot": D((0, 0), DOT),
+    "dieresis": D((0, 0), DOT) | D((5, 0), DOT),
     "ring": So((0, 0, 2), (4, 0, 2), (4, 4, 2), (0, 4, 2)),           # r2: a true circle, 2w hole
     "doubleacute": S((0, 2.4, B), (1.2, 0, B)) | S((4.5, 2.4, B), (5.7, 0, B)),
     "commaabove": S((0, 2.6, B), (0.8, 0, B)),          # turned comma (ģ)

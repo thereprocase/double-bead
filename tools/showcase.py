@@ -1,6 +1,6 @@
 """Showcase images of the finished fonts, drawn from the built TTFs (kerning applied, as a shaper would).
 
-    cadpy tools/showcase.py        -> showcase/*.png
+    python tools/showcase.py        -> showcase/*.png
 """
 import sys
 sys.stdout.reconfigure(encoding="utf-8")
@@ -104,7 +104,7 @@ def hero():
     for s, em in lines:
         text(d, "Fillaprint", s, pad, y, em)
         y += em * 1.4 + 6
-    caption(d, (pad + 6, 890), "Set with Fillaprint-Regular.ttf v0.100, kerning from the file. Size: Fusion Height = 14 × line "
+    caption(d, (pad + 6, 890), "Set with Fillaprint-Regular.ttf v0.101, kerning from the file. Size: Fusion Height = 14 × line "
             "width (4.48 mm at 0.32 mm).", 15)
     save(im, "1-double-bead.png")
 

@@ -47,7 +47,7 @@ acute bend, centreline radius r            measured; r ≥ 0.8 keeps < 2.85, r =
 
 ```
 R1  stroke width                = 2w      (floor 2*mb; never below)
-R2  local max thickness         < 2.85w   (point maxima at crossings allowed; 2.83 accepted)
+R2  local max thickness         < 2.85w   (point maxima at crossings allowed; 2.83 accepted; R11 dots excepted)
 R3  counters / apertures        ≥ 2w      (notch tips at acute joins may fill)
 R4  right-angle corners         centreline fillet r=1 → outer R2, inner sharp
 R5  acute bends                 centreline fillet r ∈ [0.8, 1.0]; r=2 for constant thickness
@@ -56,6 +56,8 @@ R7  free ends                   R1 ball; stem ends on a guide line stay flat (so
 R8  diagonals                   measured perpendicular, not on the grid
 R9  letter gap (true distance)  ≥ 2w
 R10 all geometry in w           slicer profile ships with the font (mb, XY comp = 0)
+R11 dots                        disk of radius DOT = 1.5 (3w); keeps its outer edge on the guide it sits on and
+                                ≥ 2w clear of every stroke (R3); mono may fall back to 2w dots only where 3w cannot fit
 ```
 
 ## 5. Primitives
@@ -239,7 +241,35 @@ line check    = dist(neighbour_i, neighbour_i+1) ≥ 1.98 for every set line
 
 Note: opening at exactly r = 1 deletes exact-2w strokes; the check radius must sit below 1.
 
-Reference results: P max 2.83 (f, t crossings), all others ≤ 2.76; M max 2.83; no thin pieces; no neighbour gaps under 2w in any setting.
+Reference results: P max 2.97 (the R11 dots of i, j and the other dotted glyphs; stroke-only glyphs max 2.83 at f, t crossings); M max 2.97; no thin pieces; no neighbour gaps under 2w in any setting.
+
+## 11a. Dots (R11)
+
+Every dot — i, j, the period, colon, semicolon, ! ¡ ? · ÷ …, ŀ Ŀ, and the dot and dieresis
+marks — is a disk of radius `DOT` (`beadjoint/geom.py`), 3w across. Two reasons, one visual
+and one physical:
+
+- **Optical compensation.** A disk the width of a stem looks lighter than the stem: it covers
+  π/4 ≈ 79 % of the square the stroke would fill, and round forms read smaller than straight
+  ones. Type design draws dots (tittles, periods) wider than the stem to match its weight.
+- **Printability.** At exactly 2w a dot is one outer-wall loop around a point: no core, a
+  sub-millimetre perimeter the slicer slows, shrinks and seams, and the dot is often eaten.
+  At 3w the slicer lays a real loop around a solid centre (the 3-bead band of §2) and the dot
+  survives. 2.5w is the smallest size worth considering; 3w is the default.
+
+Placement: a dot keeps the edge it had at 2w on its guide line (a period still sits on the
+baseline, `:` still spans the x-height), and moves away from its own stroke until the gap is
+2w again (R3). The i/j dot therefore tops out 1w above the ascender line. Stems that share an
+axis with their dot (`!`, `¡`, `i`) move with it so the pair stays centred.
+
+Mono exception: three 3w dots with 2w gaps need 13w of ink, over the 10w cell, so Mono's `…`
+keeps 2w dots (`full_m` in `beadjoint/charset.py`). `%`, `‰` and `•` were already larger
+(3.5w and 4w) and are unchanged.
+
+Tuning: change `DOT` in `beadjoint/geom.py` and the dot centres that depend on it (search
+`DOT` in `beadjoint/`), then run `python build.py`. The build fails if any dot comes closer
+than 2w to a stroke or a neighbouring glyph, or thins below the two-bead floor. Values from
+1.25 (2.5w) to 1.5 (3w) keep every dot in the 2- or 3-bead band.
 
 ## 12. Not yet defined
 

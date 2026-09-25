@@ -1,5 +1,5 @@
 from _lib import *
-exec(open(r"F:\code\beadjoint\review\frodo-letters\mw.py", encoding="utf-8").read().split("cand = {}")[0])
+exec(open(str(Path(__file__).resolve().parents[2] / "review/frodo-letters/mw.py"), encoding="utf-8").read().split("cand = {}")[0])
 
 def M_hair(ym, W=10.0, r=2.0, rv=2.0):
     """One stroke up, down to the middle, up, down: hairpin shoulders (centreline r) so no wedge fills;

@@ -3,7 +3,7 @@ import sys
 sys.stdout.reconfigure(encoding="utf-8")
 from pathlib import Path
 from PIL import Image, ImageDraw
-D = Path(r"F:\code\beadjoint\review\frodo-r3\ba")
+D = Path(str(Path(__file__).resolve().parents[2] / "review/frodo-r3/ba"))
 rows = [("top", "tf#&Æ", 7), ("bottom", "tf#&Æ", 1), ("bottom", "vNVk", 1)]
 tiles = []
 for face, chars, L in rows:

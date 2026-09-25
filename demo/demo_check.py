@@ -1,6 +1,6 @@
 """Per-glyph validation of the demo slice: how every glyph actually prints.
 
-    cadpy demo/demo_check.py [--slice demo/slice] [--tag name] [--crops demo/glyphs]
+    python demo/demo_check.py [--slice demo/slice] [--tag name] [--crops demo/glyphs]
 
 For each glyph, on the top face (last two layers) and the bed face (layers 1-2), from the gcode:
   covered    share of the glyph interior (outline eroded 0.03 mm) under colour (T1) beads
@@ -37,8 +37,8 @@ from shapely.geometry import Point, shape
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, "F:/code/masonry-keys")
-from gcode_arcs import move_pieces  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "demo"))
+from slicer_support import move_pieces  # noqa: E402
 
 arg = lambda n, d: sys.argv[sys.argv.index(n) + 1] if n in sys.argv else d
 RES = 0.01

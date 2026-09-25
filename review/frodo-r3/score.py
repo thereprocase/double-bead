@@ -1,7 +1,7 @@
 """Frodo r3: compare analyze.py runs: body-colour specks (through-voids), wide voids, thin beads, bleed."""
 import json, sys
 from pathlib import Path
-D = Path("/mnt/f/code/beadjoint/review/frodo-r3")
+D = (Path(__file__).resolve().parents[2] / "review/frodo-r3")
 for f in sorted(D.glob("an-*.json")):
     if f.stem in ("an-full", "an-test"):
         continue

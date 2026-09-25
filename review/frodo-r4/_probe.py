@@ -1,16 +1,17 @@
 """Frodo r4: a string whose width tells whether an app applies the fonts' kerning (Fusion check)."""
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
-sys.path.insert(0, r"F:\code\beadjoint\review\frodo-r4")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "review/frodo-r4"))
 import beadjoint.setting as st
 from beadjoint.setting import ink_extent
 from beadjoint.readback import FontReader
 from beadjoint.specimen import draw_rows
 from _nokern import nk, NoKern
 from proto_setting import kerned_r4
-R = r"F:\code\beadjoint\review\frodo-r4"
-F = r"F:\code\beadjoint\fonts"
+R = str(Path(__file__).resolve().parents[2] / "review/frodo-r4")
+F = str(Path(__file__).resolve().parents[2] / "fonts")
 W = 0.32
 tab = FontReader(F + r"\BeadjointTab-Regular.ttf")
 prop = FontReader(F + r"\Beadjoint-Regular.ttf")

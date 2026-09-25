@@ -1,11 +1,12 @@
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.setting import mixed, kerned
 from beadjoint.charset import full_mixed
 import proto_setting as ps
 from _ctx import render
-R = r"F:\code\beadjoint\review\frodo-symbols"
+R = str(Path(__file__).resolve().parents[2] / "review/frodo-symbols")
 G = full_mixed()
 lines = ["The quick brown fox jumps over the lazy dog.", "les jattes de kiwis, jeden Tag, ąę jeż",
          "1/4\" Jt. 1/2\"-5/8\" dep. 45°-90°", "M6 x 1.0 ±.005 -.5 mm #3 PH a_b \"stop.\"",

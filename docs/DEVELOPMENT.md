@@ -9,6 +9,24 @@ python -m unittest discover -s tests
 python tools/public_showcase.py
 ```
 
+To reproduce the committed binaries exactly, build in a fresh virtual environment with
+the pinned versions and no other packages:
+
+```sh
+python -m venv .venv && . .venv/bin/activate
+python -m pip install --only-binary=:all: -r requirements.txt
+python build.py && python -m unittest discover -s tests
+git status --short fonts/        # empty when your build matches the committed fonts
+```
+
+The TTFs depend on the fontTools version as well as the glyph sources: the same sources
+built with a different fontTools give different bytes. Keep `requirements.txt` pinned and
+rebuild the fonts in the same commit whenever the pins or the sources change.
+
+Font timestamps are fixed so a rebuild is byte-identical: `head.created` and `modified`
+come from `BUILD_DATE` in `beadjoint/fontfile.py`, or from `SOURCE_DATE_EPOCH` when that
+environment variable is set. Bump `BUILD_DATE` together with `VERSION` for each release.
+
 The build writes three TTFs, their OFL license, specimen images, and `report.json`.
 It exits unsuccessfully if geometry, outline read-back, spacing, or setting fidelity
 checks fail. See [SPEC.md](SPEC.md) for tolerances and construction rules.
@@ -36,10 +54,26 @@ arguments. Without them, the site does not provide new slicing evidence.
 
 ## Slice validation
 
-`demo/demo_plate.py` and `demo/demo_check.py` build and slice a two-face coupon.
-They require OrcaSlicer and helpers/profile data from the author's companion
-masonry-keys project. They are not standalone commands for a fresh clone.
-The recorded tested profile is described in [PRINTING.md](PRINTING.md).
+`demo/demo_plate.py` and `demo/demo_check.py` build and slice a two-face coupon,
+then score how every glyph printed from the gcode. They need two things beyond
+`requirements.txt`:
+
+- [CadQuery](https://cadquery.readthedocs.io/) (`python -m pip install cadquery`) to
+  build the coupon solids.
+- [OrcaSlicer](https://github.com/SoftFever/OrcaSlicer). The scripts find it on `PATH`
+  as `orca-slicer`, or use the `ORCA_SLICER` environment variable.
+
+```sh
+python demo/demo_plate.py                  # slice demo/slice with demo/profiles
+python demo/demo_check.py                  # score it; writes demo/check.json
+demo/tune.sh classic wall_generator=classic   # slice + score one override set
+demo/tune_all.sh                           # a batch of wall variants, then rank them
+```
+
+`demo/slicer_support.py` holds the 3MF writing, OrcaSlicer lookup and gcode parsing.
+The starter presets in `demo/profiles/` are explained in its README. They are not the
+exact profile behind the committed showcase; that setup is recorded in
+[PRINTING.md](PRINTING.md).
 
 ## Repository layout
 

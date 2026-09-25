@@ -1,4 +1,5 @@
-import sys; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, r"F:\code\beadjoint")
+import sys
+from pathlib import Path; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from beadjoint.glyphs import FIGURES
 from beadjoint.charset import full_p, full_mixed
@@ -40,5 +41,5 @@ for ch, geom, x in line2:
     print(f"{ch}: x={x:.2f} bounds={[round(b,2) for b in geom.bounds]}")
 
 draw_rows([("12:30 kerned", [line]), ("12:30 mixed", [line2])], scale=24,
-          path=r"F:\code\beadjoint\review\frodo-r5\time_check.png")
+          path=str(Path(__file__).resolve().parents[2] / "review/frodo-r5/time_check.png"))
 print("wrote time_check.png")

@@ -1,7 +1,8 @@
 """Frodo r3: quote head radius 1.4 (current) vs 1.25 vs 1.6, three copies each (placement noise)."""
 import sys
-sys.path.insert(0, r"F:\code\beadjoint\review\frodo-r3")
-sys.path.insert(0, r"F:\code\beadjoint")
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "review/frodo-r3"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.geom import BALL as B, D, S
 import acute
 GLYPHS = []

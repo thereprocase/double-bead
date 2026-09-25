@@ -19,10 +19,14 @@ kerned against every glyph so the ink-to-ink gap across a space is WORD (Tab fon
 a space starts its 9w cell at that edge). GPOS 'kern' carries all of it; a legacy 'kern' table
 carries the ASCII pairs for programs that only read that (FreeType's FT_Get_Kerning, GDI).
 """
+import os
+from datetime import datetime
+
 import numpy as np
 import shapely
 from fontTools.feaLib.builder import addOpenTypeFeaturesFromString
 from fontTools.fontBuilder import FontBuilder
+from fontTools.misc.timeTools import timestampSinceEpoch
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import newTable
 from fontTools.ttLib.tables._k_e_r_n import KernTable_format_0
@@ -37,12 +41,21 @@ from .glyphs import FIGURES, pieces
 from .setting import CELL_F, CELL_M, WORD, off
 
 UNITS = 50
-VERSION = "0.100"
+VERSION = "0.101"
+# head.created/modified for this revision. Fixed rather than "now" so a rebuild of the same sources
+# is byte-identical; SOURCE_DATE_EPOCH (reproducible-builds.org) overrides it.
+BUILD_DATE = "2026-09-25T00:00:00+00:00"
 KERN_DROP = 0.1
 LINE_MIN = 1.98
 GAP_TRIGGER, GAP_TARGET = 2.0, 2.02      # exceptions: below the trigger, push to the target
 SIDE_TOL = 0.3
 ASCII = {chr(c) for c in range(0x21, 0x7F)}
+
+def build_epoch():
+    """Seconds since 1970 for the font timestamps: $SOURCE_DATE_EPOCH if set, else BUILD_DATE."""
+    env = os.environ.get("SOURCE_DATE_EPOCH")
+    return int(env) if env else int(datetime.fromisoformat(BUILD_DATE).timestamp())
+
 
 DESCRIPTION = ("Two-bead FDM font: every stroke is exactly two extrusion widths (w). Fusion text Height "
                "= 14 x line width (cap height); em = 20 x line width.")
@@ -250,6 +263,9 @@ def build_font(path, family, glyphs, lsb, rsb, space, fea=None, legacy=None, mon
     os2.recalcCodePageRanges(fb.font)
     apply_license(fb.font)
     fb.font["head"].fontRevision = float(VERSION)
+    stamp = timestampSinceEpoch(build_epoch())
+    fb.font["head"].created = fb.font["head"].modified = stamp
+    fb.font.recalcTimestamp = False               # keep the fixed stamp; fontTools would write "now"
     fb.save(str(path))
     return {"glyphs": len(glyphs), "win": [win_asc, win_desc]}
 

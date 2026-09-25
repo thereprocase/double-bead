@@ -1,6 +1,6 @@
 """Build Fillaprint: fonts, specimen images and the verification report.
 
-    cadpy build.py            -> fonts/*.ttf, specimen/*.png, report.json
+    python build.py            -> fonts/*.ttf, specimen/*.png, report.json
 
 Checks (spec 11), all of which must pass or the build exits 1:
   * every glyph of P, M and the tabular 1: thickness <= 2.85w, no thin pieces

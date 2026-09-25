@@ -1,6 +1,6 @@
 """Build the Fillaprint browser site (static, served on the LAN by site/serve.py).
 
-    cadpy site/build_site.py [--demo demo/check-owt0.json] [--crops demo/glyphs]
+    python site/build_site.py [--demo demo/check-owt0.json] [--crops demo/glyphs]
 
 Writes site/dist: index.html, style.css, app.js (from site/template), data/glyphs.json,
 data/summary.json, fonts/, crops/ (demo-slice bead renders), thick/ (local stroke width maps),

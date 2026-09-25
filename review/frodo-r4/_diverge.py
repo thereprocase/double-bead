@@ -1,7 +1,8 @@
 """Frodo r4: engine (mixed / kerned) vs TTF (Tab / proportional) per pair, label by label."""
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.setting import mixed, kerned
 from beadjoint.readback import FontReader
 
@@ -16,7 +17,7 @@ LABELS = ['1/4" Jt.', '1/2" - 5/8" dep.', '5/16" Jt.', '5/8" - 25/32" dep.', '9/
           "Ventilation", "Kitchen", "Wavy", "Toyota", "LAVA", "Yawn", "AVATAR", "Fjord", "fifty", "office", "Tj", "yj",
           "\"Quote\"", "'single'", "(paren)", "[bracket]", "{brace}", "a_b_c", "e-mail", "http://pve:8080/", "C:\\temp"]
 
-F = r"F:\code\beadjoint\fonts"
+F = str(Path(__file__).resolve().parents[2] / "fonts")
 tab = FontReader(F + r"\BeadjointTab-Regular.ttf")
 prop = FontReader(F + r"\Beadjoint-Regular.ttf")
 

@@ -1,11 +1,12 @@
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from PIL import Image, ImageFilter
 from beadjoint.setting import kerned
 from beadjoint.specimen import draw_rows
 
-R = r"F:\code\beadjoint\review\frodo-r7"
+R = str(Path(__file__).resolve().parents[2] / "review/frodo-r7")
 rows = [("vv w vvw wvv", [kerned("vv"), kerned("w"), kerned("vvw"), kerned("wvv")])]
 SCALE = 3
 sim_rows = [(cap, [[(c, g.buffer(0.3), x) for c, g, x in ln] for ln in lines]) for cap, lines in rows]

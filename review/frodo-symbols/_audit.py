@@ -1,11 +1,12 @@
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.charset import full_p, full_mixed
 from beadjoint.verify import check_glyph
 from beadjoint.sheet import grid
 from beadjoint.glyphs import pieces
-R = r"F:\code\beadjoint\review\frodo-symbols"
+R = str(Path(__file__).resolve().parents[2] / "review/frodo-symbols")
 P = full_p()
 scope = ("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~" + "¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿×÷"
          + "–—‘’‚“”„†‡•…‰‹›⁄€™′″−" + "0123456789")

@@ -1,4 +1,5 @@
-import sys; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, r"F:\code\beadjoint")
+import sys
+from pathlib import Path; sys.stdout.reconfigure(encoding="utf-8"); sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.geom import So, finish
 from beadjoint.verify import check_glyph
 from beadjoint.specimen import draw_rows
@@ -14,4 +15,4 @@ print("check_glyph:", check_glyph(candidate))
 m = dict(full_m())
 m["0"] = Glyph("0", "M:0", candidate)
 draw_rows([("narrower-ring zero vs O: 0O0O 0.5 100 SN00", [tabular("0O0O", glyphs=m), tabular("0.5 100 SN00", glyphs=m)])],
-          scale=24, path=r"F:\code\beadjoint\review\frodo-r6\narrow_zero.png")
+          scale=24, path=str(Path(__file__).resolve().parents[2] / "review/frodo-r6/narrow_zero.png"))

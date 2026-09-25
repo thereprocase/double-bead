@@ -1,6 +1,6 @@
 """Frodo's proposed capitals/specials, in latin.py notation, checked against the prototypes."""
 from _lib import *
-exec(open(r"F:\code\beadjoint\review\frodo-letters\fix4.py", encoding="utf-8").read().split('if __name__')[0])
+exec(open(str(Path(__file__).resolve().parents[2] / "review/frodo-letters/fix4.py"), encoding="utf-8").read().split('if __name__')[0])
 from beadjoint.glyphs import _raw_p
 from beadjoint.latin import capitals
 from beadjoint.marks import apostrophe

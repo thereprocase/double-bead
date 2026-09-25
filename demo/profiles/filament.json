@@ -1,0 +1,7 @@
+{
+ "type": "filament",
+ "name": "Fillaprint demo - PLA",
+ "from": "User",
+ "inherits": "Bambu PLA Basic @BBL X1C",
+ "filament_settings_id": ["Fillaprint demo - PLA"]
+}

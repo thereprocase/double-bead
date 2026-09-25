@@ -1,7 +1,7 @@
 """Demo slice: every Beadjoint glyph on one coupon, in colour on both faces, sliced with the
-0.3-as-0.4 Arachne text profile of the masonry-keys project.
+0.3-as-0.4 Arachne text profile described in demo/profiles/README.md.
 
-    cadpy demo/demo_plate.py [--w 0.32] [--out demo/slice] [--chars "zw#t"] [--layout-out demo/layout.json]
+    python demo/demo_plate.py [--w 0.32] [--out demo/slice] [--chars "zw#t"] [--layout-out demo/layout.json]
                              [--set key=value ...]     (process overrides, repeatable)
 
 Coupon: 1.16 mm (0.2 + 6 x 0.16) with the text 0.36 mm deep on the top face (layers 6-7, reads from
@@ -26,15 +26,15 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, "F:/code/masonry-keys")
-import build_plate as bp  # noqa: E402  (3MF helpers: mesh, add_mesh, NS, ORCA)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "demo"))
+import slicer_support as bp  # noqa: E402  (3MF helpers: mesh, add_mesh, NS, ORCA)
 from beadjoint.charset import CHARS, full_p  # noqa: E402
 from beadjoint.glyphs import pieces  # noqa: E402
 
 arg = lambda n, d: sys.argv[sys.argv.index(n) + 1] if n in sys.argv else d
 W = float(arg("--w", "0.32"))
 OUT = ROOT / arg("--out", "demo/slice")
-PROFILES = Path("F:/code/masonry-keys/profiles-03as04-arachne")
+PROFILES = bp.require_profiles(arg("--profiles", None))
 THICK, DEPTH = 1.16, 0.36
 GAP, PITCH, MARGIN, ROW_LEN = 5.0, 30.0, 4.0, 190.0     # w, w, mm, mm
 TOP_Y = 13.0                                            # w below the row top where y = 0 (x-height line) sits

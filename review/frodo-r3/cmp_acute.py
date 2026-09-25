@@ -1,7 +1,8 @@
-import sys, json
+import sys
+from pathlib import Path, json
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint\review\frodo-r3")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "review/frodo-r3"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.charset import full_p, CHARS
 from beadjoint.verify import check_glyph
 import acute
@@ -13,7 +14,7 @@ for c in CHARS:
     if b["thin"] or b["islands"]:
         bad.append((c, b["thin"], b["islands"]))
     rows.append((c, a["thickness"], b["thickness"], round(P[c].geom.area - A[c].geom.area, 3)))
-json.dump(rows, open(r"F:\code\beadjoint\review\frodo-r3\cmp_acute.json", "w", encoding="utf-8"), ensure_ascii=False)
+json.dump(rows, open(str(Path(__file__).resolve().parents[2] / "review/frodo-r3/cmp_acute.json"), "w", encoding="utf-8"), ensure_ascii=False)
 print("thin/islands in acute set:", bad)
 ch = [r for r in rows if abs(r[1] - r[2]) > 0.02]
 print(len(ch), "glyphs change max thickness; area removed max", max(r[3] for r in rows))

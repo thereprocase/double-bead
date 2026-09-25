@@ -1,10 +1,11 @@
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.setting import kerned, mixed, ink_extent
 from beadjoint.specimen import draw_rows
 from beadjoint.verify import line_gaps
-R = r"F:\code\beadjoint\review\frodo-symbols"
+R = str(Path(__file__).resolve().parents[2] / "review/frodo-symbols")
 lines = ["!\"#$%&'()*+,-./", ":;<=>?@[\\]^_`{|}~", "a_b x_y (x) [1] {a} a|b", "‘quoted’ “quoted” „low“ it’s 5′ 6″",
          "45% 3‰ • item · x 2×3 2*3 a*b Jt.*", "fox jumps  jeden  les jattes  a j", "BIN 12-A  12:30  1:2  -5 °C  ±0.1"]
 rows = [(t, [mixed(t)]) for t in lines]

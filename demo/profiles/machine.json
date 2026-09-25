@@ -1,0 +1,7 @@
+{
+ "type": "machine",
+ "name": "Fillaprint demo - P1S 0.4",
+ "from": "User",
+ "inherits": "Bambu Lab P1S 0.4 nozzle",
+ "printer_settings_id": "Fillaprint demo - P1S 0.4"
+}

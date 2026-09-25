@@ -1,8 +1,9 @@
 """Frodo r3: & variants. U+E200 current, U+E201 C (arm leans right and crosses the tail), U+E202 B (no right arm),
 U+E203 C with the acute-only inside fillet."""
 import sys
-sys.path.insert(0, r"F:\code\beadjoint\review\frodo-r3")
-sys.path.insert(0, r"F:\code\beadjoint")
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "review/frodo-r3"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from beadjoint.charset import full_p
 from beadjoint.geom import BALL as B, S, So, finish
 import acute

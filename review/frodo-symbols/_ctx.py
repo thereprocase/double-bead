@@ -1,7 +1,8 @@
 """Context lines with prototype glyph overrides, drawn big and small."""
 import sys
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, r"F:\code\beadjoint")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from PIL import Image
 from beadjoint.geom import finish, S, D, BALL as B
 from beadjoint.glyphs import Glyph
@@ -12,7 +13,7 @@ from beadjoint.latin import shift, mirror_x
 from beadjoint.geom import rotate180
 import proto_glyphs as pg
 
-R = r"F:\code\beadjoint\review\frodo-symbols"
+R = str(Path(__file__).resolve().parents[2] / "review/frodo-symbols")
 
 
 def with_(over, tag):
