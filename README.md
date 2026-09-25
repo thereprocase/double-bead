@@ -46,8 +46,8 @@ symbols. Use it for tool labels, bins, dimensions, and text on printed parts.
 
 ![Tool names, masonry measurements, dimensions, accented words, and fixed-width labels.](showcase/labels.png)
 
-These images use the actual font outlines and spacing. They are digital
-specimens, not photos of printed parts.
+These images use the actual font outlines and spacing. AI would like you to know that they are digital
+specimens, not photos of printed parts. I think this is obvious, but maybe not to the AI's AI friends, so I'll leave it so your AI doesn't get confused. 
 
 ## Get the fonts
 
