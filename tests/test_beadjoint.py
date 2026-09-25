@@ -16,7 +16,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 from beadjoint import glyphs as spec  # noqa: E402
 from beadjoint.charset import CHARS, full_m, full_mixed, full_p  # noqa: E402
-from beadjoint.geom import S, fillet, soft  # noqa: E402
+from beadjoint.geom import DOT, S, fillet, soft  # noqa: E402
 from beadjoint.glyphs import pieces  # noqa: E402
 from beadjoint.readback import FontReader  # noqa: E402
 from beadjoint.setting import kerned, mixed, tabular  # noqa: E402
@@ -42,17 +42,27 @@ class Geometry(unittest.TestCase):
 
 
 class SpecReference(unittest.TestCase):
-    """docs/SPEC.md section 11: P max 2.83 (f, t), all others <= 2.76; M max 2.83; no thin pieces."""
+    """docs/SPEC.md section 11: P strokes max 2.83 (f, t), all others <= 2.76; M strokes max 2.83;
+    R11 dots (i, j) measure 2 * DOT; no thin pieces."""
+
+    DOTTED = "ij"
+
+    def assert_dots(self, res):
+        # The raster check reads a disk slightly under its true diameter.
+        for c in self.DOTTED:
+            self.assertAlmostEqual(res[c]["thickness"], 2 * DOT, delta=0.05, msg=c)
 
     def test_set_p(self):
         res = {c: check_glyph(g.geom) for c, g in spec.set_p().items() if c in spec.LOWER + spec.FIGURES}
         self.assertAlmostEqual(max(res["f"]["thickness"], res["t"]["thickness"]), 2.83, delta=0.01)
-        self.assertLessEqual(max(v["thickness"] for c, v in res.items() if c not in "ft"), 2.76)
+        self.assertLessEqual(max(v["thickness"] for c, v in res.items() if c not in "ft" + self.DOTTED), 2.76)
+        self.assert_dots(res)
         self.assertFalse([c for c, v in res.items() if v["thin"]])
 
     def test_set_m(self):
         res = {c: check_glyph(g.geom) for c, g in spec.set_m().items() if c in spec.LOWER + spec.FIGURES}
-        self.assertLessEqual(max(v["thickness"] for v in res.values()), 2.84)
+        self.assertLessEqual(max(v["thickness"] for c, v in res.items() if c not in self.DOTTED), 2.84)
+        self.assert_dots(res)
         self.assertFalse([c for c, v in res.items() if v["thin"]])
 
 

@@ -9,6 +9,24 @@ python -m unittest discover -s tests
 python tools/public_showcase.py
 ```
 
+To reproduce the committed binaries exactly, build in a fresh virtual environment with
+the pinned versions and no other packages:
+
+```sh
+python -m venv .venv && . .venv/bin/activate
+python -m pip install --only-binary=:all: -r requirements.txt
+python build.py && python -m unittest discover -s tests
+git status --short fonts/        # empty when your build matches the committed fonts
+```
+
+The TTFs depend on the fontTools version as well as the glyph sources: the same sources
+built with a different fontTools give different bytes. Keep `requirements.txt` pinned and
+rebuild the fonts in the same commit whenever the pins or the sources change.
+
+Font timestamps are fixed so a rebuild is byte-identical: `head.created` and `modified`
+come from `BUILD_DATE` in `beadjoint/fontfile.py`, or from `SOURCE_DATE_EPOCH` when that
+environment variable is set. Bump `BUILD_DATE` together with `VERSION` for each release.
+
 The build writes three TTFs, their OFL license, specimen images, and `report.json`.
 It exits unsuccessfully if geometry, outline read-back, spacing, or setting fidelity
 checks fail. See [SPEC.md](SPEC.md) for tolerances and construction rules.

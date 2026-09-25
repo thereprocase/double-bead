@@ -9,6 +9,7 @@ from shapely import affinity
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
 from shapely.ops import unary_union
 
+DOT = 1.5                     # dot radius: 3w, so the slicer lays two beads around a real core
 BALL = "ball"                  # endpoint tag (x, y, BALL): adds a unit disk (spec: ●)
 ARC_STEP = math.radians(1.5)   # fillet arcs: chord error under 0.0004w at r = 2
 QS = 64                        # quad_segs for disks and round offsets
