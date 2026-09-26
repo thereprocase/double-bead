@@ -146,6 +146,31 @@ class Construction(unittest.TestCase):
         for c, g in latin.mono_extras().items():
             self.assertTrue(charset.raw_m()[c].equals_exact(g, 0), c)
 
+    def test_cache_clear_refinishes(self):
+        # full_p's cache sits above _assembled_p's, so a caller that patches finish must clear every
+        # layer; charset.cache_clear() does, and the rebuild runs the patched finish for every glyph.
+        cached = [f for f in vars(charset).values()
+                  if getattr(f, "__module__", None) == charset.__name__ and hasattr(f, "cache_info")]
+        self.assertGreaterEqual(len(cached), 9)
+        full_p()
+        real, calls = charset.finish, []
+
+        def counting(g):
+            calls.append(g)
+            return real(g)
+
+        charset.finish = counting
+        try:
+            charset.full_p.cache_clear()
+            charset.full_p()
+            self.assertEqual(calls, [], "full_p alone rebuilds nothing: the finished glyphs are cached below it")
+            charset.cache_clear()
+            self.assertEqual([f.__name__ for f in cached if f.cache_info().currsize], [])
+            rebuilt = charset.full_p()
+            self.assertGreaterEqual(len(calls), len(rebuilt))      # every glyph finished again, with the patch
+        finally:
+            charset.finish = real
+
     def test_extension_copies_match_latin(self):
         # The spec sets check glyphs._raw_extension's copies while the fonts draw latin's shapes; an edit
         # to one must reach the other or the conformance checks stop describing the fonts.
