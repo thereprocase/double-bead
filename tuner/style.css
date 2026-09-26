@@ -320,6 +320,12 @@ aside {
 #status.error {
   color: var(--gl-red);
 }
+#status.warn {
+  padding-left: 12px;
+  border-left: 4px solid var(--gl-amber);
+  background: var(--gl-attention);
+  color: #5c3d00;
+}
 #canvas.stale .current {
   opacity: 0.3;
 }
@@ -450,6 +456,10 @@ h2 {
 .affected.bad {
   background: var(--gl-red-bg);
   border-color: var(--gl-red);
+}
+.affected.warn {
+  background: var(--gl-attention);
+  border-color: var(--gl-amber);
 }
 #source {
   overflow-wrap: anywhere;

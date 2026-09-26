@@ -77,7 +77,11 @@ families, and before/after evidence. Follow the release versioning guidance in
 and record your line width, slicer version, profile, and any physical print test.
 
 The preview checks thin ink, tight enclosed holes, gaps between separate pieces,
-and spacing in the displayed line. All-family validation also detects glyphs
+and spacing in the displayed line. Finishing fills negative space narrower than about 2w with
+ink. The preview and validation compare that filled area with the original glyph and
+warn in amber when an edit adds more than 0.5 w²; strokes moved closer than 2w then
+print as solid ink. The warning does not fail validation, because acute joins such as
+N, K and v are filled by design. All-family validation also detects glyphs
 that disappear from Mono and tabular digits that exceed their width budget.
 Maximum thickness and open tight regions are informational, consistent with
 the current verification code; 3w dots and some joins exceed the original 2.85w

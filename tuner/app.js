@@ -26,9 +26,14 @@ function value(id) {
 function session() {
   return { schema: 1, sources: catalog.sources, values: { ...values } };
 }
-function message(text, error = false) {
+// level: "" for progress and success, "warn" for printable but suspect geometry, "error".
+function message(text, level = "") {
   $("status").textContent = text;
-  $("status").classList.toggle("error", error);
+  $("status").classList.toggle("error", level === "error");
+  $("status").classList.toggle("warn", level === "warn");
+}
+function fillNote(fill) {
+  return `Finishing filled ${fill.after.toFixed(2)} w² of gaps narrower than 2w with ink (original ${fill.before.toFixed(2)} w²). Strokes this close print as solid ink; keep them at least 2w apart.`;
 }
 function download(name, content, type) {
   const a = document.createElement("a");
@@ -109,16 +114,21 @@ async function drain() {
       draw(result);
       renderChecks(result);
       $("canvas").classList.remove("stale");
-      message(
-        result.checks.ok
-          ? "Geometry updated. Selected glyph passes the hard geometry checks."
-          : "Selected glyph fails geometry checks — inspect the values below.",
-        !result.checks.ok,
-      );
+      if (!result.checks.ok)
+        message(
+          "Selected glyph fails geometry checks — inspect the values below." +
+            (result.fill.warn ? " " + fillNote(result.fill) : ""),
+          "error",
+        );
+      else if (result.fill.warn) message(fillNote(result.fill), "warn");
+      else
+        message(
+          "Geometry updated. Selected glyph passes the hard geometry checks.",
+        );
     }
   } catch (e) {
     if (req.revision === revision) {
-      message(e.message, true);
+      message(e.message, "error");
       $("canvas").classList.add("stale");
     }
   } finally {
@@ -307,11 +317,12 @@ function renderChecks(r) {
   }
   if (r.validation) {
     $("validation").textContent =
-      `${r.changed.length} changed glyphs checked. ${r.failures.length ? r.failures.join(" ") : "Affected geometry passes. Run the full build, tests, and slicer validation after applying the patch."} Thickness above 2.85w is informational; dots and some joins intentionally exceed it.`;
+      `${r.changed.length} changed glyphs checked. ${r.failures.length ? r.failures.join(" ") : "Affected geometry passes. Run the full build, tests, and slicer validation after applying the patch."} ${r.warnings.length ? `Finishing filled new gaps narrower than 2w with ink in ${r.warnings.length} glyphs (${r.warnings.slice(0, 6).join(", ")}${r.warnings.length > 6 ? ", …" : ""}); those strokes print as solid ink. ` : ""}Thickness above 2.85w is informational; dots and some joins intentionally exceed it.`;
     $("affected").replaceChildren();
     for (const g of r.changed) {
       const n = document.createElement("span");
-      n.className = "affected" + (g.checks.ok ? "" : " bad");
+      n.className =
+        "affected" + (!g.checks.ok ? " bad" : g.fill_warn ? " warn" : "");
       n.textContent = g.family + ":" + g.char;
       $("affected").append(n);
     }
@@ -391,7 +402,7 @@ $("export").onclick = async () => {
       "Patch exported. Apply with git apply --check, then git apply, and run the full build.",
     );
   } catch (e) {
-    message(e.message, true);
+    message(e.message, "error");
   }
 };
 $("import").onclick = () => $("file").click();
@@ -417,7 +428,7 @@ $("file").onchange = async () => {
     renderControls();
     schedule();
   } catch (e) {
-    message(e.message, true);
+    message(e.message, "error");
   } finally {
     $("file").value = "";
   }
@@ -459,7 +470,7 @@ async function start() {
         catalog.targets[0],
     );
   } catch (e) {
-    message("Could not start tuner: " + e.message, true);
+    message("Could not start tuner: " + e.message, "error");
   }
 }
 start();

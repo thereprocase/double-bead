@@ -90,6 +90,60 @@ class SourceEditing(unittest.TestCase):
         self.assertIn(("T", "n"), changed)
         self.assertIn(("M", "n"), changed)
         self.assertNotIn(("M", "r"), changed)
+        self.assertEqual(result["warnings"], [])
+        self.assertFalse(result["fill"]["warn"])
+
+    def test_closing_a_counter_warns_that_finishing_filled_it(self):
+        # Right stem of n at x = 3.5 leaves a 0.5w slit; finishing fills it with ink, so the
+        # glyph still passes the hard checks. The preview must say so rather than stay green.
+        for s in self.target("n", "Base")["slots"]:
+            if s["label"].endswith(" x") and s["value"] == 6:
+                self.session["values"][s["id"]] = 3.5
+        request = {"session": self.session, "family": "P", "char": "n", "text": "n", "validate": False}
+        process = subprocess.run([sys.executable, "-m", "tuner.worker"], input=json.dumps(request),
+                                 text=True, capture_output=True, cwd=ROOT, timeout=180)
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+        result = json.loads(process.stdout)
+        self.assertTrue(result["checks"]["ok"])
+        self.assertTrue(result["fill"]["warn"])
+        self.assertEqual(result["fill"]["before"], 0)
+        self.assertGreater(result["fill"]["after"], 3)
+
+    def test_fill_warning_follows_the_dotless_base_of_accented_i_and_j(self):
+        # Marks above sit on dotless ı and ȷ: a new fill in ȷ must reach ĵ, and moving the
+        # dot of i must not be charged to í (its geometry does not change).
+        values = self.session["values"]
+        for s in self.target("ȷ", "Specials")["slots"]:
+            if s["label"] == "S1 point 3 y":
+                values[s["id"]] = 10
+        for s in self.target("i", "Base")["slots"]:
+            if s["label"] == "D2 point 1 y":
+                values[s["id"]] = -2.2
+        self.assertEqual(len(values), 2)
+        request = {"session": self.session, "family": "P", "char": "í", "text": "í ĵ", "validate": True}
+        process = subprocess.run([sys.executable, "-m", "tuner.worker"], input=json.dumps(request),
+                                 text=True, capture_output=True, cwd=ROOT, timeout=300)
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+        result = json.loads(process.stdout)
+        self.assertFalse(result["fill"]["warn"])
+        self.assertIn("P:ȷ", result["warnings"])
+        self.assertIn("P:ĵ", result["warnings"])
+        self.assertNotIn("P:í", {g["family"] + ":" + g["char"] for g in result["changed"]})
+
+    def test_fill_meter_covers_every_glyph(self):
+        # Warnings rely on finished geometry reaching the Glyph records unchanged; a pipeline
+        # change that breaks that would otherwise silence them without failing anything.
+        script = ("from tuner.worker import FillMeter\n"
+                  "meter = FillMeter()\n"
+                  "from beadjoint import charset\n"
+                  "for glyphs in (charset.full_p(), charset.full_mixed(), charset.full_m()):\n"
+                  "    missing = [c for c, g in glyphs.items() if meter.filled(g.geom) is None]\n"
+                  "    assert not missing, missing\n"
+                  "    assert meter.filled(glyphs['N'].geom) > 1, 'acute joins are filled by design'\n"
+                  "    for accented, base in (('í', 'ı'), ('ĵ', 'ȷ'), ('ñ', 'n')):\n"
+                  "        assert meter.finished[id(glyphs[accented].geom)][2] is glyphs[base].geom, accented\n")
+        process = subprocess.run([sys.executable, "-c", script], text=True, capture_output=True, cwd=ROOT, timeout=300)
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
 
 
 class LocalServer(unittest.TestCase):
