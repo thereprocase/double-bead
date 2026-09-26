@@ -2,6 +2,7 @@ scratch/
 __pycache__/
 *.pyc
 *.log
+dist/
 # regenerable slicing data and renders (demo/demo_plate.py, demo/demo_check.py, site/build_site.py)
 demo/slice*/
 demo/tune/
