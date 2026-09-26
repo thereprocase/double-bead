@@ -9,7 +9,9 @@
 figures 700 (the OS/2 cap height, which is what Fusion's text Height sets), descender -200.
 Line pitch 1400 units = 28w (typo and hhea metrics, USE_TYPO_METRICS; round 2: at 20w an accent or a
 bracket on one line runs into the descenders of the line above); win metrics cover the tallest accent
-and the lowest comma so nothing is clipped.
+and the lowest comma so nothing is clipped. At 28w, ink in y in [-12, 14] (Å's ring to the descenders)
+keeps 2w between lines; only the comma-below letters reach lower (y = 16.6) and need 30.6w under the
+tallest accents (docs/PRINTING.md).
 
 Kerning (spec 10, scaled up): an accented letter shares its base letter's side bearings and kerning
 class on each side where its ink ends within 0.3w of the base's; class pairs are computed on the

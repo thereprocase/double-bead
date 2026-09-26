@@ -164,6 +164,47 @@ class Setting(unittest.TestCase):
         self.assertGreaterEqual(CELL_F - 7.02, LINE_MIN - 1e-9)
 
 
+class LineSpacing(unittest.TestCase):
+    """At the fonts' 28w line pitch, ink within y in [-12, 14] keeps 2w between lines at any horizontal
+    offset. Only the comma-below letters reach lower; README.md and docs/PRINTING.md list them and the
+    pitch that clears them."""
+
+    PITCH = 28.0
+    BAND = (-12.0, 14.0)
+    COMMA_BELOW = "ĢĶķĻļŅņŖŗŢţȘșȚț"
+    CLEAR_PITCH = 30.6
+
+    def test_ink_band(self):
+        self.assertEqual(self.BAND[1] - self.BAND[0], self.PITCH - 2)
+        lowest, highest = -99.0, 99.0
+        for name, glyphs in (("P", full_p()), ("T", full_mixed()), ("M", full_m())):
+            outside = {c for c, g in glyphs.items() if g.bounds[1] < self.BAND[0] - 1e-6 or g.bounds[3] > self.BAND[1] + 1e-6}
+            self.assertEqual(outside, set(self.COMMA_BELOW), name)
+            lowest = max(lowest, max(g.bounds[3] for g in glyphs.values()))
+            highest = min(highest, min(g.bounds[1] for g in glyphs.values()))
+        # comma below over ring (ș over Å): the pitch at which the closest approach is 2w again
+        self.assertAlmostEqual(lowest + 2 - highest, self.CLEAR_PITCH, delta=0.005)
+
+    def test_ink_band_in_fonts(self):
+        top, bottom = (10 - self.BAND[0]) * UNITS, (10 - self.BAND[1]) * UNITS
+        for name in ("Fillaprint-Regular.ttf", "FillaprintTab-Regular.ttf", "FillaprintMono-Regular.ttf"):
+            font = FontReader(FONTS / name).font
+            hhea, os2 = font["hhea"], font["OS/2"]
+            self.assertEqual(hhea.ascent - hhea.descent + hhea.lineGap, self.PITCH * UNITS, name)
+            self.assertEqual(os2.sTypoAscender - os2.sTypoDescender + os2.sTypoLineGap, self.PITCH * UNITS, name)
+            glyf = font["glyf"]
+            cmap = font.getBestCmap()
+            outside = {chr(u) for u, g in cmap.items() if glyf[g].numberOfContours > 0
+                       and (glyf[g].yMax > top or glyf[g].yMin < bottom)}
+            self.assertEqual(outside, set(self.COMMA_BELOW), name)
+
+    def test_documented(self):
+        for doc in (ROOT / "README.md", ROOT / "docs" / "PRINTING.md"):
+            text = doc.read_text(encoding="utf-8")
+            self.assertIn(f"{self.CLEAR_PITCH:g} × w", text, doc.name)
+            self.assertIn(" ".join(self.COMMA_BELOW), text, doc.name)
+
+
 FAMILIES = (("Fillaprint-Regular.ttf", full_p), ("FillaprintTab-Regular.ttf", full_mixed),
             ("FillaprintMono-Regular.ttf", full_m))
 
