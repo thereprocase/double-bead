@@ -62,6 +62,18 @@ def _finite_min(values):
     return round(min(finite), 3) if finite else None
 
 
+def _pieces_text(s):
+    """Piece gaps for the printout: the closest separate pieces, then any exempt designed join."""
+    parts = [f"pieces >= {s['min_piece_gap']}" if s["min_piece_gap"] is not None else "one piece each"]
+    parts += [f"{c} {d} exempt" for c, d in s.get("exempt_piece_gaps", {}).items()]
+    return ", ".join(parts)
+
+
+def _spec_line(name, s):
+    return (f"spec set {name:4s} max {s['max_thickness']} ({s['max_at']}), strokes <= {s['max_stroke']}, "
+            f"{_pieces_text(s)}, thin {s['thin'] or 'none'}")
+
+
 def _line_min(line):
     gaps = line_gaps([(c, g) for c, g, _ in line])
     return min((d for *_, d in gaps), default=99.0)
@@ -78,13 +90,14 @@ def main():
         s = _summary(check_set(glyphs))
         strokes = {c: stroke_thickness(g.geom) for c, g in glyphs.items()}
         gaps = {c: piece_gap(g.geom) for c, g in glyphs.items()}
+        # a designed join (Mono's k) stays open in the spec set: soft() does not fill its notch tip
+        designed = FUSED_BY_DESIGN.get(name, frozenset())
         s["max_stroke"] = round(max(strokes.values()), 3)
-        s["min_piece_gap"] = _finite_min(gaps.values())
+        s["min_piece_gap"] = _finite_min(d for c, d in gaps.items() if c not in designed)
+        s["exempt_piece_gaps"] = {c: round(gaps[c], 3) for c in sorted(designed) if gaps.get(c, math.inf) != math.inf}
         report["spec_sets"][name] = s
         failures += [f"spec set {name}:{c}" for c in s["fail"]]
         failures += [f"spec set {name}:{c} stroke {t:.3f}w over {MAX_T}w" for c, t in strokes.items() if t > MAX_T]
-        # a designed join (Mono's k) stays open in the spec set: soft() does not fill its notch tip
-        designed = FUSED_BY_DESIGN.get(name, frozenset())
         failures += [f"spec set {name}:{c} pieces {d:.3f}w apart" for c, d in gaps.items() if d < LINE_MIN and c not in designed]
 
     fonts = HERE / "fonts"
@@ -148,15 +161,14 @@ def main():
     report["failures"] = failures
     (HERE / "report.json").write_text(json.dumps(report, indent=1, default=str))
     for name, s in report["spec_sets"].items():
-        print(f"spec set {name:4s} max {s['max_thickness']} ({s['max_at']}), strokes <= {s['max_stroke']}, "
-              f"pieces >= {s['min_piece_gap']}, thin {s['thin'] or 'none'}")
+        print(_spec_line(name, s))
     for family, f in report["fonts"].items():
         rb = f["readback_glyphs"]
         worst = min(report["lines"][family].values(), key=lambda e: e["ttf_min_gap"])
         dev = max(e["ttf_gap_dev"] for e in report["lines"][family].values())
         drift = max(e["ttf_drift"] for e in report["lines"][family].values())
         print(f"{family:15s} {f['glyphs']} glyphs, {f.get('class_pairs', 0)} class pairs + {f.get('exceptions', 0)} exceptions | readback within "
-              f"{rb['max_outline_deviation']}w, max {rb['max_thickness']}, thin {rb['thin'] or 'none'} | pieces >= {rb['min_piece_gap']}, "
+              f"{rb['max_outline_deviation']}w, max {rb['max_thickness']}, thin {rb['thin'] or 'none'} | {_pieces_text(rb)}, "
               f"joined {''.join(rb['joined_by_finishing']) or 'none'} | lines min gap "
               f"{worst['ttf_min_gap']}, gap dev <= {dev}, drift <= {drift}")
     print("FAIL:\n  " + "\n  ".join(failures) if failures else "all checks pass")
