@@ -13,7 +13,7 @@ VERSION = "0.101"
 RELEASE = "0.1.1 beta"
 # head.created/modified for this revision. Fixed rather than "now" so a rebuild of the same sources
 # is byte-identical; SOURCE_DATE_EPOCH (reproducible-builds.org) overrides it (see fontfile.build_epoch).
-BUILD_DATE = "2026-09-25T00:00:00+00:00"
+BUILD_DATE = "2026-09-26T00:00:00+00:00"
 
 # Release archive stem, e.g. "Fillaprint-0.1.1-beta": the folder inside the ZIP and its file name.
 ZIP_STEM = "Fillaprint-" + RELEASE.replace(" ", "-")

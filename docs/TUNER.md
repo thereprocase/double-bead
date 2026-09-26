@@ -50,7 +50,7 @@ back) come from a cache.
 ## Tune
 
 1. Select a construction in the left rail. The catalog exposes
-   **COUNT_CONSTRUCTIONS constructions and COUNT_PARAMETERS numeric
+   **193 constructions and 2,003 numeric
    parameters**, including base letters, capitals, symbols, Mono variants,
    accents, and the shared dot radius. Search by character or group name; exact
    character matches come first, and a letter drawn by a shared helper finds it
@@ -175,7 +175,10 @@ tagged **Stale** or **Failed**, and dragging pauses until the preview is current
   `python build.py` would reject it. Finishing fills gaps narrower than about
   2w with ink: pieces the source keeps apart, such as the two parts of ĳ or a
   dot over its stem, merge once they come closer than 1.98w. The build also
-  rejects ink thicker than 4.85w. The message lists only the problems that
+  rejects ink thicker than 4.85w. The tuner measures thickness on the source
+  geometry while `python build.py` measures the built TTF, so a glyph within
+  about 0.04w of the 4.85w limit can pass one and fail the other; the build is
+  the acceptance check. The message lists only the problems that
   apply; the other print checks read the same way (*it has ink narrower than
   2w, which cannot print*, *it encloses a hole narrower than 2w*, *separate
   pieces are only 1.5w apart (at least 1.98w)*). Move the pieces or strokes
