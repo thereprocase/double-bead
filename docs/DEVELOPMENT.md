@@ -93,6 +93,31 @@ on Linux, macOS and Windows. Fonts built on macOS or Windows differ from the rel
 glyphs above, so build releases on Linux. The glyph tuner's previews show the local geometry
 and differ from the release in the same way.
 
+## Continuous integration
+
+`.github/workflows/test.yml` runs on every push to `main` and every pull request:
+
+- **test**: the whole suite on Linux, macOS and Windows with Python 3.12 and 3.14, against
+  the committed fonts, with the tolerances described under [Platforms](#platforms).
+- **build fonts from sources**: on Linux with Python 3.12, `python build.py` builds the fonts
+  from the checked-out sources and runs its own geometry and read-back checks; then
+  `tests/test_beadjoint.py` and `tests/test_release.py` run against the fonts it just built,
+  at the exact tolerances and with nothing skipped; finally the committed `fonts/` is compared
+  with that build.
+
+On `main` nothing is skipped, and the build job fails unless the committed fonts match the
+build byte for byte, so source changes land on `main` together with rebuilt fonts.
+
+Pull requests are source-only ([TUNER.md](TUNER.md#contribute)), so their committed fonts
+may predate their sources. For pull requests the workflow sets
+`FILLAPRINT_COMMITTED_FONTS_MAY_BE_STALE=1` in the test matrix, which skips the three tests
+that compare the committed fonts with the sources (`test_outlines_follow_source`,
+`test_mono_lines_follow_setting` and `test_ink_band_in_fonts`); the log names each skip
+and its reason, and every other test runs as on `main`. The build job runs those three on
+the fonts built from the pull request's sources, and when the committed fonts differ from
+that build it posts a notice and a job summary instead of failing. Locally the variable is
+unset and nothing skips.
+
 ## Glyph tuner
 
 For contribution editing, run `python -m tuner.serve`. The localhost tuner edits

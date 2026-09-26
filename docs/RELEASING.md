@@ -38,7 +38,10 @@ Nothing else needs to change: `beadjoint/fontfile.py`, `tools/package_release.py
 ## 3. Rebuild the fonts in a fresh pinned environment
 
 Build on Linux, where CI reproduces the committed fonts; macOS and Windows finish a few glyphs
-differently (see [DEVELOPMENT.md](DEVELOPMENT.md#platforms)).
+differently (see [DEVELOPMENT.md](DEVELOPMENT.md#platforms)). CI on `main` fails unless the
+committed fonts match a Linux build of the sources byte for byte, so push rebuilt fonts
+together with the source changes they reflect; pull requests are only told that their fonts
+are older (see [DEVELOPMENT.md](DEVELOPMENT.md#continuous-integration)).
 
 ```sh
 python -m venv .venv && . .venv/bin/activate

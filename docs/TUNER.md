@@ -221,9 +221,16 @@ and the tuner starts without edits.
 
 Contributor pull requests are source-only. `python build.py` and the tests must
 pass, but the fonts, specimen images, and `report.json` they rewrite differ from
-machine to machine; maintainers rebuild them once per release in the pinned
-environment on Linux. `git restore fonts specimen report.json` discards those outputs, and
+machine to machine; maintainers rebuild them in the pinned environment on Linux
+when the change lands on `main`. `git restore fonts specimen report.json` discards those outputs, and
 `git status --short` should then list only files under `beadjoint/`.
+
+CI checks a pull request's sources, not its committed fonts: its Linux build job
+builds fonts from your sources and runs the build's checks and the font tests on
+them, and notes that the committed fonts are older. The test matrix skips only
+the three tests that compare the committed fonts with the sources, and runs
+everything else on Linux, macOS and Windows (see
+[DEVELOPMENT.md](DEVELOPMENT.md#continuous-integration)).
 
 Open a pull request with the source diff, why the glyph is better, affected
 families, and before/after evidence. Use the

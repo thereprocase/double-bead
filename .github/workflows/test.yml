@@ -1,5 +1,11 @@
 name: test
 
+# What runs where (docs/DEVELOPMENT.md, "Continuous integration"):
+#   push to main   every test, including those comparing the committed fonts with the sources, on every
+#                  platform; the build job rebuilds the fonts and fails unless they match the committed ones.
+#   pull request   contributions are source-only (docs/TUNER.md), so the committed fonts may predate the
+#                  sources: the matrix skips the tests that compare the two, and the build job runs them on
+#                  fonts built from the pull request's sources and only reports stale committed fonts.
 on:
   push:
     branches: [main]
@@ -30,10 +36,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install "--only-binary=:all:" -r requirements.txt
-      - run: python -m unittest discover -s tests
+      # -v prints each skipped test with its reason.
+      - name: run the tests
+        env:
+          FILLAPRINT_COMMITTED_FONTS_MAY_BE_STALE: ${{ github.event_name == 'pull_request' && '1' || '' }}
+        run: python -m unittest discover -s tests -v
 
-  reproducible-build:
-    name: reproducible build (ubuntu, py3.12)
+  build:
+    name: build fonts from sources (ubuntu, py3.12)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -44,10 +54,38 @@ jobs:
       - run: python -m pip install "--only-binary=:all:" -r requirements.txt
       # requirements.txt intentionally omits uharfbuzz, so fontTools falls back to its
       # pure-Python GPOS packer here. That packer's output is what the committed fonts were
-      # built with; installing uharfbuzz would change GPOS packing and break this check
-      # (see docs/DEVELOPMENT.md's reproducibility notes).
-      - run: python build.py
-      - name: fail if the rebuild changed the committed fonts
+      # built with; installing uharfbuzz would change GPOS packing and break the comparison
+      # below (see docs/DEVELOPMENT.md's reproducibility notes).
+      - name: build the fonts from these sources
+        run: python build.py
+      # Linux with glibc is the reference platform, so these run at the build's exact tolerances, with
+      # nothing skipped: the tests that compare fonts with sources check the fonts just built.
+      - name: test the fonts just built
+        run: python -m unittest -v tests.test_beadjoint tests.test_release
+      - name: compare the committed fonts with the build
+        env:
+          EVENT: ${{ github.event_name }}
         run: |
-          git status --porcelain fonts
-          test -z "$(git status --porcelain fonts)"
+          stale="$(git status --porcelain fonts)"
+          if [ -z "$stale" ]; then
+            echo "The committed fonts match the fonts built from these sources."
+            exit 0
+          fi
+          echo "$stale"
+          if [ "$EVENT" = "pull_request" ]; then
+            echo "::notice title=Committed fonts predate the sources::The fonts built from this pull request's sources passed the build and the font tests. fonts/ was not rebuilt, as docs/TUNER.md asks; maintainers rebuild the fonts when the change lands on main."
+            {
+              echo "### Committed fonts predate the sources"
+              echo
+              echo "The fonts built from this pull request's sources passed \`build.py\` and the font tests."
+              echo "The committed fonts differ from them, which is expected for a source-only contribution:"
+              echo "maintainers rebuild \`fonts/\` when the change lands on \`main\`, where this difference fails the job."
+              echo
+              echo '```'
+              echo "$stale"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "::error title=Committed fonts do not match the sources::Rebuild the fonts with python build.py in the pinned environment on Linux and commit fonts/ (docs/RELEASING.md)."
+          exit 1

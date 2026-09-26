@@ -9,6 +9,7 @@ committed fonts: rebuild them (python build.py) after changing the sources. Two 
 on the platform the release geometry comes from (REFERENCE below).
 """
 import math
+import os
 import platform
 import re
 import sys
@@ -43,6 +44,14 @@ GAP_TOL = 0.1 + 0.03           # build.py: the spec's 0.1w kern drop plus roundi
 REFERENCE = sys.platform == "linux" and platform.libc_ver()[0] == "glibc"
 PLATFORM_OUTLINE_TOL = 0.25
 PLATFORM_BAND_TOL = 1e-4
+# CI sets this on pull requests. Contributions are source-only (docs/TUNER.md) and maintainers rebuild the
+# fonts when a change lands on main, so a pull request's committed fonts may predate its sources. The tests
+# that compare the committed fonts with the sources then skip, and CI's build job runs them on fonts built
+# from the pull request's sources instead. Unset (locally, and on main), nothing skips.
+STALE_FONTS_OK = os.environ.get("FILLAPRINT_COMMITTED_FONTS_MAY_BE_STALE") == "1"
+compares_fonts_with_sources = unittest.skipIf(
+    STALE_FONTS_OK, "compares the committed fonts with the sources, which FILLAPRINT_COMMITTED_FONTS_MAY_BE_STALE=1 "
+                    "says may be newer; CI's build job runs it on fonts built from these sources")
 
 
 LINES = ["The quick brown fox jumps over the lazy dog.", "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG",
@@ -293,6 +302,7 @@ class LineSpacing(unittest.TestCase):
         # comma below over ring (ș over Å): the pitch at which the closest approach is 2w again
         self.assertAlmostEqual(lowest + 2 - highest, self.CLEAR_PITCH, delta=0.005)
 
+    @compares_fonts_with_sources          # a glyph edit that moves ink across the band changes COMMA_BELOW
     def test_ink_band_in_fonts(self):
         top, bottom = (10 - self.BAND[0]) * UNITS, (10 - self.BAND[1]) * UNITS
         for name in ("Fillaprint-Regular.ttf", "FillaprintTab-Regular.ttf", "FillaprintMono-Regular.ttf"):
@@ -332,6 +342,7 @@ class Fonts(unittest.TestCase):
                 low = [(a, b, round(d, 3)) for a, b, d in gaps if d < 1.98]
                 self.assertFalse(low, f"{name}: {text!r}")
 
+    @compares_fonts_with_sources
     def test_outlines_follow_source(self):
         # build.py's tolerance, on every glyph of every family, where the release geometry comes from
         tolerance = OUTLINE_TOL if REFERENCE else PLATFORM_OUTLINE_TOL
@@ -346,6 +357,7 @@ class Fonts(unittest.TestCase):
             over = "".join(c for c, d in dev.items() if d > OUTLINE_TOL)
             self.assertLessEqual(dev[worst], tolerance, f"{name}: {worst!r}; over {OUTLINE_TOL:g}w: {over}")
 
+    @compares_fonts_with_sources
     def test_mono_lines_follow_setting(self):
         """build.py's line checks on Mono: every gap within GAP_TOL of the setting engine, positions
         off by no more than outline rounding (whole-unit cells, no kerning), and the 1.98 floor."""
