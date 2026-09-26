@@ -1,21 +1,27 @@
 """Contribution safety and actual source → edited geometry → Git patch round trips."""
 import ast
 import copy
+import errno
 import functools
+import http.client
 import json
 import os
 from pathlib import Path
+import socket
 import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
+from unittest import mock
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from beadjoint import charset, geom, glyphs, latin, verify
+from tuner import serve
 from tuner.model import ACCENTS, FUNCTIONS, ROOT, SHARED, SOURCE_PATHS, Catalog, TunerError, number, source_commit
-from tuner.serve import TunerServer
+from tuner.serve import MAX_BODY, Handler, TunerServer
 from tuner.worker import CACHE_ENV, Beadjoint, absent, explain, fill_change
 
 HEX = "0123456789abcdef0123456789abcdef01234567"
@@ -469,7 +475,10 @@ class LocalServer(unittest.TestCase):
         cls.server = TunerServer(0)
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
-        cls.url = f"http://127.0.0.1:{cls.server.server_port}"
+        cls.port = cls.server.server_port
+        cls.url = f"http://127.0.0.1:{cls.port}"
+        with urlopen(cls.url + "/api/catalog") as response:
+            cls.catalog = json.load(response)
 
     @classmethod
     def tearDownClass(cls):
@@ -477,24 +486,133 @@ class LocalServer(unittest.TestCase):
         cls.server.server_close()
         cls.thread.join()
 
-    def test_page_and_local_fonts_work_without_external_requests(self):
-        for path in ("/", "/app.js", "/style.css", "/fonts/sans-400.woff2"):
-            with self.subTest(path=path), urlopen(self.url + path) as response:
-                self.assertEqual(response.status, 200)
-                self.assertEqual(response.headers["Cache-Control"], "no-store")
+    def session(self):
+        return {"schema": 1, "sources": self.catalog["sources"], "values": {}}
+
+    def request(self, method, path, body=None, headers=()):
+        """(status, headers, parsed body) without urllib adding or checking anything."""
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=30)
+        try:
+            conn.request(method, path, body=body, headers=dict(headers))
+            response = conn.getresponse()
+            data = response.read()
+            parsed = json.loads(data) if response.headers.get_content_type() == "application/json" else data
+            return response.status, response.headers, parsed
+        finally:
+            conn.close()
+
+    def post(self, payload, path="/api/preview"):
+        headers = {"Content-Type": "application/json", "X-Tuner-Token": self.catalog["token"]}
+        status, _, body = self.request("POST", path, json.dumps(payload).encode(), headers)
+        return status, body
+
+    def test_static_routes_and_headers(self):
+        routes = {"/": "text/html; charset=utf-8", "/app.js": "text/javascript; charset=utf-8",
+                  "/style.css": "text/css; charset=utf-8"}
+        routes.update({f"/fonts/{f}.woff2": "font/woff2" for f in ("sans-400", "sans-600", "mono-400")})
+        for path, mime in routes.items():
+            with self.subTest(path=path):
+                status, headers, _ = self.request("GET", path)
+                self.assertEqual(status, 200)
+                self.assertEqual(headers["Content-Type"], mime)
+                self.assertEqual(headers["Cache-Control"], "no-store")
+                self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
+                self.assertIn("default-src 'self'", headers["Content-Security-Policy"])
+                self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
+        self.assertEqual(self.request("GET", "/nope.js")[2], {"error": "Not found.", "code": "not_found"})
+        for headers in ({"Origin": "https://example.com"}, {"Host": "attacker.example"}):
+            with self.subTest(headers=headers):
+                status, _, body = self.request("GET", "/api/catalog", headers=headers)
+                self.assertEqual((status, body["code"]), (403, "forbidden"))
 
     def test_post_requires_token_and_rejects_foreign_origin(self):
-        with urlopen(self.url + "/api/catalog") as response:
-            c = json.load(response)
-        payload = json.dumps({"session": {"schema": 1, "sources": c["sources"], "values": {}}}).encode()
+        payload = json.dumps({"session": self.session()}).encode()
         for headers in ({"Content-Type": "application/json"},
-                        {"Content-Type": "application/json", "X-Tuner-Token": c["token"], "Origin": "https://example.com"}):
+                        {"Content-Type": "application/json", "X-Tuner-Token": self.catalog["token"], "Origin": "https://example.com"}):
             with self.subTest(headers=headers), self.assertRaises(HTTPError) as error:
                 urlopen(Request(self.url + "/api/export", payload, headers))
             self.assertEqual(error.exception.code, 403)
-        headers = {"Content-Type": "application/json", "X-Tuner-Token": c["token"]}
+        headers = {"Content-Type": "application/json", "X-Tuner-Token": self.catalog["token"]}
         with urlopen(Request(self.url + "/api/export", payload, headers)) as response:
             self.assertEqual(json.load(response)["patch"], "")
+
+    def test_malformed_posts_are_rejected(self):
+        token = {"X-Tuner-Token": self.catalog["token"]}
+        cases = (({"Content-Type": "text/plain"}, b"{}", 415, "unsupported_media_type"),
+                 ({"Content-Type": "application/json"}, b"", 400, "bad_request"),
+                 ({"Content-Type": "application/json", "Content-Length": str(MAX_BODY + 1)}, None, 400, "bad_request"),
+                 ({"Content-Type": "application/json"}, b"{not json", 400, "bad_request"),
+                 ({"Content-Type": "application/json"}, b"[1, 2]", 400, "bad_request"))
+        for headers, body, status, code in cases:
+            with self.subTest(headers=headers, body=body):
+                got, _, reply = self.request("POST", "/api/preview", body, {**token, **headers})
+                self.assertEqual((got, reply["code"]), (status, code))
+
+    def test_catalog_reports_commit_and_composites(self):
+        self.assertEqual(self.catalog["commit"], source_commit(ROOT))
+        self.assertEqual(self.catalog["derived"]["ñ"], {"base": "n", "marks": ["tilde"]})
+
+    def test_preview_round_trip_and_response_cache(self):
+        payload = {"session": self.session(), "family": "P", "char": ".", "text": ".", "validate": False, "revision": 1}
+        with mock.patch("tuner.serve.subprocess.run", wraps=subprocess.run) as worker:
+            status, first = self.post(payload)
+            payload.update(revision=2, session={**self.session(), "commit": HEX})
+            again, second = self.post(payload)
+        self.assertEqual((status, again), (200, 200), first)
+        self.assertEqual(worker.call_count, 1)
+        self.assertEqual(first, second)
+        self.assertLessEqual({"before", "after", "bounds", "checks", "width", "family", "changed", "failures",
+                              "warnings", "validation", "fill", "text_paths", "text_bounds", "text_gap"}, set(first))
+        self.assertEqual(first["failures"], [])
+
+    def test_busy_server_answers_409(self):
+        self.assertTrue(self.server.busy.acquire(blocking=False))
+        try:
+            status, body = self.post({"session": self.session(), "family": "M", "char": "x", "text": "x"})
+        finally:
+            self.server.busy.release()
+        self.assertEqual((status, body["code"]), (409, "busy"))
+
+    def test_worker_errors_keep_their_code(self):
+        report = subprocess.CompletedProcess([], 1, json.dumps({"error": "Base n: too round.", "code": "construction"}), "")
+        with mock.patch("tuner.serve.subprocess.run", return_value=report):
+            status, body = self.post({"session": self.session(), "family": "T", "char": "x", "text": "x"})
+        self.assertEqual((status, body), (422, {"error": "Base n: too round.", "code": "construction"}))
+
+    def test_worker_timeout_hides_local_paths(self):
+        expired = subprocess.TimeoutExpired([sys.executable, "-m", "tuner.worker"], serve.WORKER_TIMEOUT)
+        with mock.patch("tuner.serve.subprocess.run", side_effect=expired):
+            status, body = self.post({"session": self.session(), "family": "P", "char": "y", "text": "y"})
+        self.assertEqual((status, body["code"]), (504, "timeout"))
+        self.assertNotIn(sys.executable, json.dumps(body))
+        self.assertNotIn(str(ROOT), json.dumps(body))
+
+    def test_stalled_request_is_dropped(self):
+        self.assertLessEqual(Handler.timeout, 30)
+        with mock.patch.object(Handler, "timeout", 0.3), socket.create_connection(("127.0.0.1", self.port), timeout=10) as s:
+            s.sendall(b"GET /api/catalog HTTP/1.1\r\n")
+            start = time.monotonic()
+            self.assertEqual(s.recv(1024), b"")
+            self.assertLess(time.monotonic() - start, 5)
+
+
+class Startup(unittest.TestCase):
+    def test_port_in_use_is_one_line(self):
+        with socket.socket() as busy:
+            busy.bind(("127.0.0.1", 0))
+            busy.listen()
+            port = busy.getsockname()[1]
+            with self.assertRaises(SystemExit) as caught:
+                serve.main(["--port", str(port), "--no-browser"])
+        message = str(caught.exception.code)
+        self.assertIn(f"port {port} is already in use", message)
+        self.assertIn("--port", message)
+        self.assertNotIn("\n", message)
+
+    def test_permission_error_suggests_another_port(self):
+        message = serve.bind_error(PermissionError(errno.EACCES, "Permission denied"), 80)
+        self.assertIn("--port 8767", message)
+        self.assertNotIn("\n", message)
 
 
 if __name__ == "__main__":
