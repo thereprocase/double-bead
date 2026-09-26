@@ -57,16 +57,14 @@ class Beadjoint:
             return importlib.import_module("beadjoint." + name)
 
         self.charset, self.setting, self.geom = load("charset"), load("setting"), load("geom")
-        self.glyphs, self.marks, self.verify = load("glyphs"), load("marks"), load("verify")
+        self.marks, self.verify = load("marks"), load("verify")
         self.families = {"P": self.charset.full_p, "T": self.charset.full_mixed, "M": self.charset.full_m}
         self.setters = {"P": self.setting.kerned, "T": self.setting.mixed, "M": self.setting.tabular}
         self.line_min = self.verify.LINE_MIN          # least distance between separate pieces of ink
         self.fill_warn = self.geom.PINCH_MIN_AREA     # w²: the size of one pinch that finishing fills
         self.mono_max = self.charset.MONO_MAX         # widest ink Mono keeps
-        # Tab centres every digit in a CELL_F cell, so two neighbouring digits keep the line gap
-        # only while neither is wider than the cell less that gap (9 - 1.98 = 7.02w).
-        self.tab_cell = self.setting.CELL_F
-        self.tab_digit = self.setting.CELL_F - self.verify.LINE_MIN
+        self.tab_cell = self.setting.CELL_F            # Tab centres every digit in a cell this wide
+        self.tab_digit = self.setting.FIGURE_MAX       # widest digit ink that keeps the line gap between cells
 
     @staticmethod
     def reload(edited):
@@ -335,10 +333,9 @@ def checks(g, bj, title):
         raise TunerError(f"{title}: the edit makes the glyph {extent:.0f}w across, far beyond any real glyph.",
                          "invalid_glyph")
     r = bj.verify.check_glyph(g)
-    ps = bj.glyphs.pieces(g)
-    gap = min((a.distance(b) for i, a in enumerate(ps) for b in ps[i + 1:]), default=None)
-    r["piece_gap"] = round(gap, 3) if gap is not None else None
-    r["ok"] = r["ok"] and (gap is None or gap >= bj.line_min)
+    gap = bj.verify.piece_gap(g)                     # inf for a glyph of one piece
+    r["piece_gap"] = round(gap, 3) if math.isfinite(gap) else None
+    r["ok"] = r["ok"] and gap >= bj.line_min
     return r
 
 

@@ -24,7 +24,7 @@ from unittest import mock
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from beadjoint import charset, geom, glyphs, latin, verify
+from beadjoint import charset, geom, glyphs, latin, setting, verify
 from tuner import serve
 from tuner.model import (ACCENTS, COMMIT, FUNCTIONS, ROOT, SHARED, SOURCE_PATHS, Catalog, TunerError, number,
                          source_commit)
@@ -434,6 +434,7 @@ class WorkerLogic(unittest.TestCase):
         self.assertEqual(bj.fill_warn, geom.PINCH_MIN_AREA)
         self.assertEqual(bj.line_min, verify.LINE_MIN)
         self.assertEqual(bj.mono_max, charset.MONO_MAX)
+        self.assertEqual((bj.tab_cell, bj.tab_digit), (setting.CELL_F, setting.FIGURE_MAX))
         self.assertAlmostEqual(bj.tab_digit, 7.02)
 
     def test_fill_warning_threshold(self):
