@@ -9,8 +9,8 @@ python -m unittest discover -s tests
 python tools/public_showcase.py
 ```
 
-To reproduce the committed binaries exactly, build in a fresh virtual environment with
-the pinned versions and no other packages:
+For reproducibility, build in a fresh virtual environment with the pinned versions
+and compare your output with the committed binaries:
 
 ```sh
 python -m venv .venv && . .venv/bin/activate
@@ -23,9 +23,19 @@ The TTFs depend on the fontTools version as well as the glyph sources: the same 
 built with a different fontTools give different bytes. Keep `requirements.txt` pinned and
 rebuild the fonts in the same commit whenever the pins or the sources change.
 
-Font timestamps are fixed so a rebuild is byte-identical: `head.created` and `modified`
+Font timestamps are fixed to remove clock-dependent differences: `head.created` and `modified`
 come from `BUILD_DATE` in `beadjoint/fontfile.py`, or from `SOURCE_DATE_EPOCH` when that
 environment variable is set. Bump `BUILD_DATE` together with `VERSION` for each release.
+
+A clean Python 3.12.14/Linux rebuild of revision `d14b818` with the pinned
+dependencies passed the build and all 20 existing tests. Mono was byte-identical.
+The proportional and Tab files had different GPOS packing (+116 bytes each),
+but their outline and metric tables and all 144,400 glyph-pair adjustments per
+font matched the committed files. Their GPOS bytes and resulting font checksum
+were different. Pins and fixed timestamps alone therefore do not establish
+cross-environment byte identity; compare hashes as well as font behavior before
+claiming exact reproduction. Do not replace a released binary just to normalize
+its packing.
 
 The build writes three TTFs, their OFL license, specimen images, and `report.json`.
 It exits unsuccessfully if geometry, outline read-back, spacing, or setting fidelity
@@ -41,6 +51,10 @@ from the companion demo workflow. The committed `showcase/6-sliced.png` is a
 toolpath visualization from that workflow, not a photograph or a new slicing run.
 
 ## Browser specimen
+
+For contribution editing, run `python -m tuner.serve`. The localhost tuner edits
+source coordinates in memory, previews the real geometry, validates affected
+glyphs, and exports a Git patch. See [TUNER.md](TUNER.md) for its workflow and limits.
 
 ```sh
 python site/build_site.py
@@ -85,7 +99,8 @@ exact profile behind the committed showcase; that setup is recorded in
 | `showcase/`, `specimen/` | Font specimens and explanatory images |
 | `site/` | Browser specimen and size calculator |
 | `demo/` | Coupon generation and slicer checks |
-| `review/` | Design history and review evidence |
+| `review/` | Historical scripts and notes; superseded screenshots are in Git history |
+| `tuner/` | Local Gridline interface for source-coordinate contributions |
 
 The Python package retains the working name *Beadjoint*. The public family name
 is *Fillaprint*.

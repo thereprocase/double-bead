@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Fillaprint — Glyph tuner</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="desktop">
+      <header>
+        <a
+          href="https://thereprocase.github.io/"
+          target="_blank"
+          rel="noopener"
+          class="brand"
+          >thereprocase</a
+        >
+        <h1>Fillaprint / Glyph tuner</h1>
+        <span class="tag">LOCAL WORKSPACE</span>
+      </header>
+      <nav class="menu" aria-label="Tuner actions">
+        <div class="actions">
+          <button id="undo" disabled>Undo</button
+          ><button id="redo" disabled>Redo</button
+          ><button id="import">Open session</button
+          ><input type="file" id="file" accept=".json" hidden /><button
+            id="session"
+          >
+            Save session</button
+          ><button id="export" class="primary" disabled>
+            Export Git patch
+          </button>
+        </div>
+        <a
+          href="https://github.com/thereprocase/double-bead"
+          target="_blank"
+          rel="noopener"
+          >Repository ↗</a
+        >
+      </nav>
+      <main>
+        <aside>
+          <h2 class="rail-title">Constructions</h2>
+          <label for="search">Find a glyph or group</label
+          ><input
+            id="search"
+            type="search"
+            placeholder="a, capitals, accent…"
+          />
+          <p class="muted" id="count">Loading source parameters…</p>
+          <div id="targets" aria-label="Glyph constructions"></div>
+        </aside>
+        <section class="workspace">
+          <div class="toolbar">
+            <div>
+              <label for="glyph">Preview glyph</label
+              ><input id="glyph" value="a" class="glyph-input" />
+            </div>
+            <div>
+              <label for="family">Family</label
+              ><select id="family">
+                <option value="P">Proportional</option>
+                <option value="T">Tabular figures</option>
+                <option value="M">Monospace</option>
+              </select>
+            </div>
+            <div>
+              <label for="line-width">Line width · mm</label
+              ><input
+                id="line-width"
+                type="number"
+                min="0.1"
+                max="2"
+                step="0.01"
+                value="0.42"
+              />
+            </div>
+            <div>
+              <label for="snap">Drag grid · w</label
+              ><select id="snap">
+                <option value="0.05">0.05</option>
+                <option value="0.1">0.1</option>
+                <option value="0.25">0.25</option>
+                <option value="0.5">0.5</option>
+              </select>
+            </div>
+          </div>
+          <div class="drawing">
+            <h2 class="pane-title">
+              Outline / construction <span>1 grid = 1w</span>
+            </h2>
+            <svg
+              id="canvas"
+              viewBox="-3 -8 20 26"
+              aria-label="Glyph geometry with draggable construction points"
+            ></svg>
+            <div class="legend">
+              <span class="before-dot"></span> Original
+              <span class="after-dot"></span> Edited
+              <span class="handle-dot"></span> Construction point
+            </div>
+          </div>
+          <div id="status" role="status">Choose a glyph construction.</div>
+          <div class="readouts" id="readouts"></div>
+          <div class="preview">
+            <label for="text">In context · actual source spacing</label
+            ><input id="text" maxlength="72" value="Hamburgefonts 0123" /><svg
+              id="text-preview"
+              viewBox="0 -5 130 22"
+              aria-label="Text preview"
+            ></svg>
+            <p class="muted" id="scale"></p>
+          </div>
+          <div class="validation">
+            <button id="validate">
+              Validate changed glyphs · all families
+            </button>
+            <p id="validation" class="muted">
+              Preview checks one glyph and the sample line. Full validation
+              checks all changed outlines and derived accents across the three
+              families.
+            </p>
+            <div id="affected"></div>
+          </div>
+          <p class="footnote">
+            Stroke width stays 2w. Coordinates and radii are in extrusion
+            widths, with Y down. These are geometry checks; use the normal font
+            build and slicer coupon before merging a design change.
+          </p>
+        </section>
+        <aside class="parameters">
+          <div class="parameter-heading">
+            <h2 id="title">Parameters</h2>
+            <button id="reset">Reset glyph</button>
+          </div>
+          <p id="source" class="muted"></p>
+          <p id="handle-help" class="muted"></p>
+          <div id="controls"></div>
+          <p class="muted">
+            Changes to shared bases or marks also affect derived glyphs.
+            Independent Mono shapes have their own source controls.
+          </p>
+          <p id="edits" class="edit-count">0 edited parameters</p>
+        </aside>
+      </main>
+      <footer>
+        <span>THEREPROCASE / FILLAPRINT</span
+        ><span>GRIDLINE · SOURCE COORDINATES IN w</span
+        ><span>PATCH-BASED CONTRIBUTIONS</span>
+      </footer>
+    </div>
+  </body>
+</html>

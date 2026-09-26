@@ -121,6 +121,13 @@ TTFs. The test-piece tools also measure where sliced paths fill the design,
 leave gaps, or cross an edge. See the [design specification](docs/SPEC.md) and
 [build instructions](docs/DEVELOPMENT.md) for the checks and their limits.
 
+## Contribute glyph improvements
+
+Run `python -m tuner.serve` after installing `requirements.txt` to open the local
+glyph tuner. Adjust construction points and radii, inspect the actual geometry
+and spacing, then export a Git patch for a contribution.
+[Tuner setup and workflow](docs/TUNER.md).
+
 ## License
 
 The fonts use **SIL Open Font License 1.1**, with the family names reserved.

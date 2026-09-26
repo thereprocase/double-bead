@@ -1,5 +1,11 @@
 # Beadjoint design log
 
+Historical review screenshots were removed from the working tree in September
+2026. They show superseded shapes and remain available in Git history before the
+cleanup. Scripts and numerical evidence are retained as design history, not as
+the current build pipeline. Current specimens live in `showcase/` and `specimen/`.
+New review images are ignored by Git.
+
 ## Round 0 — from the spec to a full character set (2026-09-23)
 - Built the spec's sets P (proportional), M (monospace) and the tabular 1; the spec's reference results reproduce: P max 2.83 w at the f and t crossings, everything else at most 2.76, M max 2.83, no thin pieces.
 - Extended to 350 glyphs: A-Z, all ASCII symbols, Latin-1, Latin Extended-A, Romanian comma-below letters, dashes, quotes, primes, euro, trade mark, fractions and superscripts (small figures: the figure outlines with their 4 w counters squeezed to 2 w).

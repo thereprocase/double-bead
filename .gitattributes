@@ -1,0 +1,3 @@
+# The glyph tuner hashes and edits these sources byte for byte, and its patches must
+# apply to every checkout: keep Python sources LF on all platforms.
+*.py text eol=lf
