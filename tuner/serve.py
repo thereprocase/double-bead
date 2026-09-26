@@ -122,8 +122,10 @@ class TunerServer(ThreadingHTTPServer):
     def run_worker(self, key):
         """(HTTP status, response) for one geometry computation in a fresh process."""
         try:
+            # errors="replace": the reply is ASCII JSON, and a stray byte on stderr (a library writing in
+            # the Windows code page) must not cost the preview.
             process = subprocess.run([sys.executable, "-m", "tuner.worker"], input=key, capture_output=True,
-                                     text=True, encoding="utf-8", cwd=self.catalog.root, timeout=WORKER_TIMEOUT,
+                                     encoding="utf-8", errors="replace", cwd=self.catalog.root, timeout=WORKER_TIMEOUT,
                                      env=self.worker_env)
         except subprocess.TimeoutExpired:
             return 504, {"error": f"The preview took longer than {WORKER_TIMEOUT // 60} minutes and was stopped. "

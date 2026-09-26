@@ -253,7 +253,9 @@ class SourceCommit(unittest.TestCase):
 
     def test_only_a_clean_tracked_checkout_at_root_names_a_commit(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            # A non-ASCII checkout path: git reports it in UTF-8, which the Windows code page misreads.
+            root = Path(directory, "Łĳ")
+            root.mkdir()
             paths = ["beadjoint/glyphs.py", "beadjoint/verify.py"]
             copy_sources(root, paths)
             self.assertIsNone(source_commit(root, paths), "not a Git checkout")
