@@ -5,7 +5,9 @@ the figure height y in [-4, 10], bars on the 2-4-2-4-2 band stack, checked like 
 Every constructor below is hand-transcribed from docs/SPEC.md; the notation maps as
     S[(1,1)●, (6,1)^0, ...]   ->  S((1, 1, B), (6, 1, 0), ...)
     S°[...]                   ->  So(...)
-The finishing filter soft() is applied to every glyph of every set.
+The spec sets here are finished with soft() alone (spec 6). The font families are assembled in
+charset and finish every glyph with geom.finish instead: pinches filled, inside corners rounded,
+then soft().
 """
 import unicodedata
 from dataclasses import dataclass
@@ -146,7 +148,9 @@ def _slash():
 
 
 def _raw_extension():
-    """Glyphs outside the spec's sets, built to its rules (spec 12) for the masonry labels."""
+    """Glyphs outside the spec's sets, built to its rules (spec 12) for the masonry labels. These are
+    the spec sets' copies, for the conformance checks; all three font families draw J " - . / from
+    latin.capitals() and latin.symbols(), which build the same shapes."""
     e = {}
     e["J"] = S((6, -4), (6, 9), (1, 9), (1, 6, B))          # stem flat on the cap line, hook with ball
     e["/"] = _slash()

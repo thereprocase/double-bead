@@ -87,7 +87,42 @@ solve(build):          find vy by bisection on [9.5, 16] such that max_y(build(v
 ```
 soft(g) = (g ⊖ 0.5) ⊕ 0.5        # morphological opening, r = 0.5w
 ```
-Applied to every glyph in every set. Leaves balls and R ≥ 0.5 corners untouched.
+Applied to every glyph of the spec sets (§7, §8). Leaves balls and R ≥ 0.5 corners untouched.
+
+The font families finish every glyph, base glyphs and composites alike, with `finish`
+(`beadjoint/geom.py`, applied in `beadjoint/charset.py`): pinches filled, inside corners
+rounded, then `soft`.
+
+```
+finish(g) = soft(fillet_inside(fill_pinches(g)))
+
+fill_pinches(g)    tight = ((g ⊕ PINCH_R) ⊖ PINCH_R) − g, eroded 0.03
+                   every tight piece with area > PINCH_MIN_AREA becomes ink
+                   PINCH_R = 0.98, PINCH_MIN_AREA = 0.5 w²
+fillet_inside(g)   notch = ((g ⊕ 0.5) ⊖ 0.5) − g
+                   each notch piece becomes ink unless it is small and open:
+                   area ≤ FILLET_MIN_AREA and mouth to the negative space > 1.2 √area
+                   FILLET_MIN_AREA = 0.1 w²
+```
+
+- **PINCH_R = 0.98.** Negative space narrower than 1.96w is a pinch. Two beads of body
+  colour cannot print a narrower slit, so it is filled with letter colour instead of being
+  left for the slicer to drop or smear. Acute wedges (the N, v, k, x, y, z joints) and
+  near-touching pieces fill. Counters, apertures and gaps of 2w or more stay open. The radius
+  sits just under 1 for the same reason as the thin check's (§11).
+- **PINCH_MIN_AREA = 0.5 w².** The size filter of §11's tight pieces. A plain 90° inside
+  corner (0.2 w²) stays open. The 0.03 erosion comes first so hairline slivers cannot join
+  pieces.
+- **FILLET_MIN_AREA = 0.1 w².** Inside corners get R0.5 only where the fill seals a notch,
+  slit or pinhole. An open right-angle or obtuse corner (a small piece with a wide mouth) stays
+  sharp. Filling those swelled every crossing from 2.83 to 3.22w and every T from 2.5 to
+  2.75w, and the one-wall top layer printed that as 0.52 mm beads pushing colour 0.1 mm past
+  the outline.
+
+Filled joins are solid ink by design and measure over R2's 2.85: N 4.54w, v 4.26w, the
+arrows 4.84w. §11's reference results are for the spec sets. The build runs the thin and
+island checks on every glyph of each family as read back from its TTF. The glyph tuner warns
+when an edit makes `fill_pinches` add more than 0.5 w² over the original glyph.
 
 ## 7. Proportional glyphs (set P)
 
@@ -173,11 +208,19 @@ Tabular "1" for the mixed setting (7w wide, fits the 9w figure cell):
 ```
 T      = 2.4     # optical target gap = stem-to-stem gap
 DEPTH  = 3.0     # scanline cap = T + DEPTH
-GAPMIN = 2.0     # hard true-distance floor (R9)
-WORD   = 5.5     # ink-to-ink word space
-CELL_M = 12      # monospace advance  (= width(m) 10 + GAPMIN)
-CELL_F = 9       # tabular figure advance (= 7 + GAPMIN)
+GAPMIN = 2.02    # hard true-distance floor: R9's 2.0 + 0.02 for outlines rounded to 1/50 w
+WORD   = 5.5     # word space, between word-space edges
+WORD_FLOOR = 3.5 # true distance from a word to the whole previous word
+CELL_M = 12      # monospace advance: ink ≤ width(m) = 10 leaves 2.00 between cells
+CELL_F = 9       # tabular figure advance: digits ≤ 7.02 leave 1.98 (7 today: 2.00)
 ```
+
+GAPMIN's 0.02 lets a TTF, whose outlines are rounded to 1/50 w, still pass the 1.98 line
+check (§11). The cells do not carry that margin: they leave 2.00 and 1.98, which meet the line
+check. The build checks every setting's lines as read back from each TTF.
+
+Word-space edges: halfway between a glyph's ink edge inside y ∈ [-4,10] and its bbox edge, so a
+descender overhang (j hook, ogonek) counts half and a cap-zone one fully.
 
 Optical pair offset (origin of B relative to origin of A):
 
@@ -196,7 +239,8 @@ Kerned setting (set P):
 
 ```
 x_B = x_A + off(A,B)
-after a space: place next ink edge WORD past the previous ink edge
+after a space: place the next glyph's left word-space edge WORD past the rightmost right
+               word-space edge of the previous word, then ≥ WORD_FLOOR from all of that word
 ```
 
 Tabular setting (set M):
@@ -211,7 +255,9 @@ Mixed setting (letters from P, figures from P with 1 → 1ₜ):
 ```
 figure run d0..dn:  cell_origin(k,d) = k*CELL_F + (CELL_F - bboxW(d))/2 - bbox_minx(d)
   run start after letter L:  run0 = x_L + off(L, d0) - cell_origin(0, d0)
-  run start after space/BOL: run0 = current edge
+  run start at line start:   run0 = 0
+  run start after a space:   as any glyph after a space: the edge of d0 (not of its cell)
+                             sits WORD past the previous word's edge
   figure k at run0 + cell_origin(k, dk)
 letter after figure d:       x = x_d + off(d, letter)
 ```
@@ -227,7 +273,9 @@ advance(X) = lsb(X) + bboxW(X) + rsb(X)
 kern(A,B)  = inkgap(A,B) - rsb(A) - lsb(B)      # drop |kern| < 0.1w
 ```
 
-Monospace font: every advance = CELL_M, glyph centred. Tabular figures: advance = CELL_F, kerning disabled between figures.
+Monospace font: every advance = CELL_M, glyph centred, .notdef included (Mono draws the
+characters it leaves out as .notdef). Tabular figures: advance = CELL_F, kerning disabled
+between figures. Every font: the lsb stored in hmtx is the rounded outline's xMin.
 
 ## 11. Verification
 
@@ -263,7 +311,7 @@ baseline, `:` still spans the x-height), and moves away from its own stroke unti
 axis with their dot (`!`, `¡`, `i`) move with it so the pair stays centred.
 
 Mono exception: three 3w dots with 2w gaps need 13w of ink, over the 10w cell, so Mono's `…`
-keeps 2w dots (`full_m` in `beadjoint/charset.py`). `%`, `‰` and `•` were already larger
+keeps 2w dots (`mono_extras` in `beadjoint/latin.py`). `%`, `‰` and `•` were already larger
 (3.5w and 4w) and are unchanged.
 
 Tuning: change `DOT` in `beadjoint/geom.py` and the dot centres that depend on it (search

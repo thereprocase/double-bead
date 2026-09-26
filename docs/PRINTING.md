@@ -11,6 +11,7 @@ Nozzle diameter and extrusion width are not necessarily equal.
 | Nominal stroke / minimum clear gap | 2 × w | 0.64 mm | 0.84 mm |
 | Lowercase x-height | 10 × w | 3.20 mm | 4.20 mm |
 | Default baseline-to-baseline pitch | 28 × w | 8.96 mm | 11.76 mm |
+| Pitch for comma-below letters over tall accents | 30.6 × w | 9.79 mm | 12.85 mm |
 
 Fusion's text Height was checked against actual capital outlines on 2026-09-23.
 Other applications can interpret text size differently: measure an outlined **H**
@@ -21,9 +22,21 @@ crossings can be thicker. Enlarging the font preserves its proportions but can
 add toolpaths; shrinking it below the reference size removes the two-bead margin.
 Always inspect your own sliced preview, particularly for counters and accents.
 
-The 28 w line pitch accommodates accents and descenders. Reducing it to 20 w is
-only appropriate for selected unaccented label combinations after checking the
-actual lines. Do not assume it is safe for arbitrary multilingual text.
+The 28 w line pitch keeps ink on neighbouring lines at least 2 w apart for every
+character but one group. Ink reaches 22 w above the baseline (the ring of Å) and
+4 w below it (descenders): 22 + 4 + 2 = 28.
+
+The exception is the comma-below letters Ģ Ķ ķ Ļ ļ Ņ ņ Ŗ ŗ Ţ ţ Ș ș Ț ț, used in
+Romanian and Latvian. Their commas reach 6.6 w below the baseline. Above a letter
+with a tall accent on the next line, the gap can fall below 2 w: capitals with a
+ring, breve, grave, acute, double acute, circumflex, caron or tilde (Å Ů Ă Á Â Š Ñ
+and others), and ĥ ĺ (in Mono also ď ť). At the closest horizontal position, ș
+touches Å. For text that can stack these, set the baselines 30.6 × w apart
+(22 + 6.6 + 2), about 1.1 times the default pitch or 1.53 times the em.
+
+Reducing the pitch to 20 w is only appropriate for selected unaccented label
+combinations after checking the actual lines. Do not assume it is safe for
+arbitrary multilingual text.
 
 ## Recorded slicer setup
 
