@@ -3,16 +3,23 @@ import argparse
 from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 import secrets
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 from urllib.parse import urlsplit
 import webbrowser
 
 from .model import Catalog, ROOT
+from .worker import CACHE_ENV
 
 MAX_BODY = 256 * 1024
+# A response is ~25 KB and a miss costs 6-30 s of geometry; keep enough for undo, redo and
+# switching between a handful of glyphs.
+CACHE_ENTRIES = 128
 
 
 class TunerServer(ThreadingHTTPServer):
@@ -23,7 +30,18 @@ class TunerServer(ThreadingHTTPServer):
         self.token = secrets.token_urlsafe(32)
         self.busy = threading.BoundedSemaphore(1)
         self.cache = OrderedDict()
-        super().__init__(("127.0.0.1", port), Handler)
+        # Finished glyphs shared by this server's workers; private to this user and process.
+        self.glyph_cache = tempfile.mkdtemp(prefix="fillaprint-tuner-")
+        self.worker_env = {**os.environ, CACHE_ENV: self.glyph_cache}
+        try:
+            super().__init__(("127.0.0.1", port), Handler)
+        except OSError:
+            shutil.rmtree(self.glyph_cache, ignore_errors=True)
+            raise
+
+    def server_close(self):
+        super().server_close()
+        shutil.rmtree(self.glyph_cache, ignore_errors=True)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -95,7 +113,8 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 if key not in self.server.cache:
                     process = subprocess.run([sys.executable, "-m", "tuner.worker"], input=key, capture_output=True,
-                                             text=True, encoding="utf-8", cwd=catalog.root, timeout=180)
+                                             text=True, encoding="utf-8", cwd=catalog.root, timeout=180,
+                                             env=self.server.worker_env)
                     try:
                         data = json.loads(process.stdout)
                     except json.JSONDecodeError:
@@ -103,7 +122,7 @@ class Handler(BaseHTTPRequestHandler):
                     if process.returncode or "error" in data:
                         return self.reply(422, {"error": data.get("error", "Geometry worker failed.")})
                     self.server.cache[key] = data
-                    while len(self.server.cache) > 12:
+                    while len(self.server.cache) > CACHE_ENTRIES:
                         self.server.cache.popitem(last=False)
                 self.reply(200, self.server.cache[key])
             finally:
@@ -117,7 +136,10 @@ def main():
     parser.add_argument("--port", type=int, default=8766)
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
-    server = TunerServer(args.port)
+    try:
+        server = TunerServer(args.port)
+    except ValueError as exc:
+        sys.exit(f"Cannot start the tuner: {exc}")
     url = f"http://127.0.0.1:{server.server_port}"
     print(f"Fillaprint glyph tuner: {url}\nCtrl+C to stop. Edits stay in your browser until you export a patch.", flush=True)
     if not args.no_browser:

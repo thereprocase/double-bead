@@ -1,8 +1,11 @@
 """Disposable geometry worker; a bad coordinate cannot poison later previews."""
+import hashlib
 import importlib
 import importlib.abc
 import importlib.util
 import json
+import os
+import struct
 import sys
 from collections.abc import Mapping
 
@@ -58,6 +61,59 @@ class _ReadLog(Mapping):
         return len(self.data)
 
 
+# Set by the server to a private directory that lives as long as it does.
+CACHE_ENV = "FILLAPRINT_TUNER_CACHE"
+_RECORD = struct.Struct("<32sdI")   # sha256 of the input geometry, pinch-fill area, output size
+
+
+class FinishedCache:
+    """Finished glyphs from earlier workers, keyed by the exact bytes of the input geometry.
+
+    Finishing is a pure function of its input and dominates preview time, so a glyph whose
+    input is unchanged is read back instead of finished again. Only glyphs finished from the
+    unedited sources are written to disk; edited results stay in this process. The file is
+    written by the worker into the server's private directory, and WKB parsing cannot
+    execute code; a damaged file is ignored.
+    """
+
+    def __init__(self, directory):
+        self.path = os.path.join(directory, "finished-v1.bin") if directory else None
+        self.entries, self.unsaved, self.volatile = {}, False, set()
+        try:
+            data = open(self.path, "rb").read() if self.path else b""
+            offset = 0
+            while offset < len(data):
+                key, area, size = _RECORD.unpack_from(data, offset)
+                offset += _RECORD.size
+                self.entries[key] = (area, data[offset:offset + size])
+                offset += size
+        except (OSError, struct.error):
+            self.entries = {}
+
+    @staticmethod
+    def key(geom):
+        return hashlib.sha256(geom.wkb).digest()
+
+    def get(self, key):
+        return self.entries.get(key)
+
+    def put(self, key, area, wkb, persist):
+        self.entries[key] = (area, wkb)
+        self.unsaved = self.unsaved or persist
+        if not persist:
+            self.volatile.add(key)
+
+    def save(self):
+        if not (self.path and self.unsaved):
+            return
+        records = [_RECORD.pack(k, a, len(w)) + w for k, (a, w) in self.entries.items() if k not in self.volatile]
+        partial = self.path + ".partial"
+        with open(partial, "wb") as f:
+            f.write(b"".join(records))
+        os.replace(partial, self.path)
+        self.unsaved = False
+
+
 class FillMeter:
     """Record how much ink fill_pinches adds each time charset finishes a glyph.
 
@@ -65,10 +121,12 @@ class FillMeter:
     through its module globals, so the wrappers go on the currently loaded modules: create a
     new meter after reloading them. Results are keyed by the finished geometry object, which
     the families store unchanged in their Glyph records. A composite also carries the fill
-    of the finished base it was composed from.
+    of the finished base it was composed from. With a FinishedCache, unchanged inputs are
+    read back with their recorded fill instead of being finished again.
     """
 
-    def __init__(self):
+    def __init__(self, cache=None, persist=False):
+        from shapely import from_wkb
         from beadjoint import charset, geom, marks
         self.finished = {}
         real_fill, real_finish, real_compose = geom.fill_pinches, geom.finish, marks.compose
@@ -88,10 +146,19 @@ class FillMeter:
             return out
 
         def finish(g):
-            added.clear()
-            out = real_finish(g)
+            key = FinishedCache.key(g) if cache else None
+            hit = cache.get(key) if cache else None
+            if hit:
+                area, wkb = hit
+                out = from_wkb(wkb)
+            else:
+                added.clear()
+                out = real_finish(g)
+                area = sum(added)
+                if cache:
+                    cache.put(key, area, out.wkb, persist)
             _, base = composed.pop(id(g), (None, None))
-            self.finished[id(out)] = (out, sum(added), base)
+            self.finished[id(out)] = (out, area, base)
             return out
 
         geom.fill_pinches, marks.compose, charset.finish = fill_pinches, compose, finish
@@ -145,8 +212,13 @@ def run(request):
     def families():
         return {"P": charset.full_p, "T": charset.full_mixed, "M": charset.full_m}
 
-    before_meter = FillMeter()
+    cache = FinishedCache(os.environ.get(CACHE_ENV))
+    before_meter = FillMeter(cache, persist=True)
     baseline = {f: build() for f, build in families().items() if validate or f == family}
+    try:
+        cache.save()
+    except OSError:
+        pass    # the cache only saves time
     if char not in baseline[family]:
         raise ValueError(f"{char!r} is not included in this family. Try Proportional.")
     before = baseline[family][char].geom
@@ -156,7 +228,7 @@ def run(request):
         # All downstream caches and imported constructor aliases are recreated.
         for module in ("geom", "glyphs", "latin", "marks", "charset", "setting"):
             importlib.reload(importlib.import_module("beadjoint." + module))
-        after_meter = FillMeter()
+        after_meter = FillMeter(cache)
     else:
         after_meter = before_meter
     after = {f: build() for f, build in families().items() if validate or f == family}

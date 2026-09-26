@@ -56,7 +56,7 @@ async function post(path, data) {
   if (!res.ok) throw new Error(body.error || res.statusText);
   return body;
 }
-function history() {
+function remember() {
   undo.push({ ...values });
   if (undo.length > 100) undo.shift();
   redo = [];
@@ -194,9 +194,11 @@ function renderControls() {
     label.htmlFor = input.id;
     label.textContent = s.label;
     input.type = "number";
-    input.step = "0.05";
-    input.min = s.kind === "radius" ? "0" : "-32";
-    input.max = s.kind === "radius" ? "8" : "32";
+    input.step = "any";
+    const [lo, hi] = s.kind === "radius" ? [0, 8] : [-32, 32];
+    // A few source values (a clip box at x = 40) sit outside the normal range.
+    input.min = String(Math.min(lo, s.value));
+    input.max = String(Math.max(hi, s.value));
     input.value = value(s.id);
     input.onchange = () => {
       const n = input.valueAsNumber;
@@ -205,7 +207,7 @@ function renderControls() {
         return;
       }
       if (n === value(s.id)) return;
-      history();
+      remember();
       set(s.id, n);
       changed();
       row.classList.toggle("changed", s.id in values);
@@ -215,7 +217,7 @@ function renderControls() {
     reset.textContent = "↺";
     reset.title = "Reset " + s.label;
     reset.onclick = () => {
-      history();
+      remember();
       delete values[s.id];
       changed();
       renderControls();
@@ -267,8 +269,10 @@ function draw(result) {
       c.append(el("title", {}, h.label));
       c.onpointerdown = (e) => {
         e.preventDefault();
-        history();
-        drag = { h, c, pointer: e.pointerId };
+        const p = svgPoint(e);
+        const start = { x: value(h.x), y: value(h.y) };
+        // Keep the pointer's offset from the point so an off-centre grab does not jump.
+        drag = { h, c, start, grab: { x: p.x - start.x, y: p.y - start.y }, moved: false };
         svg.setPointerCapture(e.pointerId);
       };
       svg.append(c);
@@ -328,26 +332,53 @@ function renderChecks(r) {
     }
   }
 }
-$("canvas").onpointermove = (e) => {
-  if (!drag) return;
-  const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(
+function svgPoint(e) {
+  return new DOMPoint(e.clientX, e.clientY).matrixTransform(
     $("canvas").getScreenCTM().inverse(),
   );
+}
+$("canvas").onpointermove = (e) => {
+  if (!drag) return;
+  const p = svgPoint(e);
   const snap = Number($("snap").value);
-  const round = (v) =>
-    Math.max(
-      -32,
-      Math.min(32, Number((Math.round(v / snap) * snap).toFixed(4))),
-    );
-  set(drag.h.x, round(p.x));
-  set(drag.h.y, round(p.y));
+  const next = {};
+  for (const axis of ["x", "y"]) {
+    const start = drag.start[axis];
+    const round = (v) =>
+      Math.max(
+        Math.min(-32, start),
+        Math.min(Math.max(32, start), Number((Math.round(v / snap) * snap).toFixed(4))),
+      );
+    // An axis changes only once the pointer reaches another grid step, so a horizontal
+    // drag or a jittery click leaves the other coordinate exactly as written in the source.
+    const moved = round(p[axis] - drag.grab[axis]);
+    next[axis] = moved === round(start) ? start : moved;
+  }
+  if (next.x === value(drag.h.x) && next.y === value(drag.h.y)) return;
+  if (!drag.moved) {
+    drag.moved = true;
+    remember();
+    // Discard any preview already running: it shows the values from before the drag.
+    revision++;
+    $("canvas").classList.add("stale");
+  }
+  for (const axis of ["x", "y"]) {
+    const id = drag.h[axis];
+    set(id, next[axis]);
+    const input = $("p-" + id);
+    if (input) {
+      input.value = value(id);
+      input.closest(".control").classList.toggle("changed", id in values);
+    }
+  }
   drag.c.setAttribute("cx", value(drag.h.x));
   drag.c.setAttribute("cy", value(drag.h.y));
-  renderControls();
 };
 function endDrag() {
   if (!drag) return;
+  const moved = drag.moved;
   drag = null;
+  if (!moved) return;
   changed();
   schedule();
 }
@@ -365,7 +396,7 @@ for (const id of ["glyph", "family", "text"])
 $("line-width").oninput = physical;
 $("validate").onclick = () => schedule(true);
 $("reset").onclick = () => {
-  history();
+  remember();
   for (const s of selected.slots) delete values[s.id];
   changed();
   renderControls();
@@ -422,7 +453,7 @@ $("file").onchange = async () => {
       throw new Error(
         "Another edit occurred while opening the session. Open it again to replace those edits.",
       );
-    history();
+    remember();
     values = s.values;
     changed();
     renderControls();

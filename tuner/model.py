@@ -37,6 +37,11 @@ class Catalog:
     def __init__(self, root=ROOT):
         self.root = Path(root)
         self.sources = {p: (self.root / p).read_bytes() for p in SOURCE_PATHS}
+        for path, source in self.sources.items():
+            if b"\r\n" in source:
+                raise ValueError(f"{path} has Windows (CRLF) line endings, so exported patches would not apply to "
+                                 "the repository. With no uncommitted changes, check the sources out again: "
+                                 "git rm -r --cached -q beadjoint && git reset --hard")
         self.hashes = {p: hashlib.sha256(s).hexdigest() for p, s in self.sources.items()}
         self.slots = {}
         self.targets = []
@@ -93,12 +98,12 @@ class Catalog:
 
         calls = [n for root in roots for n in ast.walk(root) if isinstance(n, ast.Call)]
         direct = all(isinstance(n.func, ast.Name) and n.func.id in ("S", "So", "D", "Rect") for n in calls)
-        for i, call in enumerate(calls):
-            if not isinstance(call.func, ast.Name):
-                continue
+        # Number constructors in reading order so "S1" is the first S( on the displayed line;
+        # ast.walk is breadth-first and would label the last stroke of a | b | c first.
+        constructors = sorted((n for n in calls if isinstance(n.func, ast.Name) and n.func.id in ("S", "So", "D", "Rect")),
+                              key=lambda n: (n.lineno, n.col_offset))
+        for i, call in enumerate(constructors):
             name = call.func.id
-            if name not in ("S", "So", "D", "Rect"):
-                continue
             prefix = f"{name}{i + 1}"
             if name == "Rect":
                 for n, label in zip(call.args, ("x₀", "y₀", "x₁", "y₁")):
@@ -142,10 +147,15 @@ class Catalog:
         for sid, value in values.items():
             if sid not in self.slots:
                 raise ValueError("Unknown source parameter.")
-            if type(value) not in (int, float) or not math.isfinite(value) or not -32 <= value <= 32:
-                raise ValueError("Coordinates must be finite numbers between -32 and 32w.")
-            if self.slots[sid]["kind"] == "radius" and not 0 <= value <= 8:
-                raise ValueError("Radii must be between 0 and 8w.")
+            slot = self.slots[sid]
+            # A few source values (a clip box at x = 40) sit outside the normal range; they stay valid.
+            lo, hi = (0, 8) if slot["kind"] == "radius" else (-32, 32)
+            lo, hi = min(lo, slot["value"]), max(hi, slot["value"])
+            if type(value) not in (int, float) or not math.isfinite(value):
+                raise ValueError("Values must be finite numbers.")
+            if not lo <= value <= hi:
+                kind = "Radii" if slot["kind"] == "radius" else "Coordinates"
+                raise ValueError(f"{kind} must be between {lo:g} and {hi:g}w.")
             if value != self.slots[sid]["value"]:
                 clean[sid] = value
         return clean
