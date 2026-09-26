@@ -311,7 +311,7 @@ baseline, `:` still spans the x-height), and moves away from its own stroke unti
 axis with their dot (`!`, `¡`, `i`) move with it so the pair stays centred.
 
 Mono exception: three 3w dots with 2w gaps need 13w of ink, over the 10w cell, so Mono's `…`
-keeps 2w dots (`full_m` in `beadjoint/charset.py`). `%`, `‰` and `•` were already larger
+keeps 2w dots (`mono_extras` in `beadjoint/latin.py`). `%`, `‰` and `•` were already larger
 (3.5w and 4w) and are unchanged.
 
 Tuning: change `DOT` in `beadjoint/geom.py` and the dot centres that depend on it (search
