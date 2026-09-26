@@ -162,12 +162,28 @@ tagged **Stale** or **Failed**, and dragging pauses until the preview is current
   include ŉ before this edit (wider than Mono's 10w limit), and it still doesn't
   fit after it. Preview it in Proportional or Tab.* The glyph is not in Mono
   even before your edit. Select **Preview in Proportional**.
-- Messages that name a glyph or construction and a problem come from values
-  the geometry cannot use, for example *n (Base): the rounded corners at (1, 1)
-  and (6, 1) together need 9w of a segment only 5w long. Reduce the corner
-  radius or lengthen the segment.*, *Proportional .: the edit leaves no ink to
-  print.*, or *…: the edit leaves an outline that is not a valid shape (it
-  crosses itself).* Select **Undo** or change the value.
+- Messages that name a construction or a glyph (with its family in brackets)
+  and a problem come from values the geometry cannot use, for example *n (Base):
+  the rounded corners at (1, 1) and (6, 1) together need 9w of a segment only
+  5w long. Reduce the corner radius or lengthen the segment.*, *. (Proportional):
+  the edit leaves no ink to print.*, or *a (Proportional): the edit leaves an
+  outline that is not a valid shape (it crosses itself).* Select **Undo** or
+  change the value.
+- *ĳ (Proportional): finishing joined separate pieces — keep them at least
+  1.98w apart; it is 5.5w thick at its thickest; the fonts allow at most
+  4.85w.* The glyph fails a check the font build also enforces, so
+  `python build.py` would reject it. Finishing fills gaps narrower than about
+  2w with ink: pieces the source keeps apart, such as the two parts of ĳ or a
+  dot over its stem, merge once they come closer than 1.98w. The build also
+  rejects ink thicker than 4.85w. The message lists only the problems that
+  apply; the other print checks read the same way (*it has ink narrower than
+  2w, which cannot print*, *it encloses a hole narrower than 2w*, *separate
+  pieces are only 1.5w apart (at least 1.98w)*). Move the pieces or strokes
+  apart until the status line clears, or select **Undo**. Joins the design
+  intends, such as Mono's k, are allowed.
+- *0 (Tab) is 8.50w wide. Tab gives every digit the same 9w cell, so a digit
+  wider than 7.02w comes closer than 1.98w to its neighbours.* Narrow the digit
+  or undo the change.
 - *The preview took longer than 3 minutes and was stopped. Undo the last change,
   or try again.* Select **Retry**, or undo if the last value made the geometry
   hard to build.
@@ -214,15 +230,17 @@ Maintainers follow the release guidance in [DEVELOPMENT.md](DEVELOPMENT.md) when
 they rebuild the fonts.
 
 The preview checks thin ink, tight enclosed holes, gaps between separate pieces,
-and spacing in the displayed line. Finishing fills negative space narrower than about 2w with
+and spacing in the displayed line. Like the font build, it also fails a glyph
+whose ink is thicker than 4.85w or whose separate pieces finishing joined (joins
+the design intends, such as Mono's k, excepted). Finishing fills negative space narrower than about 2w with
 ink. The preview and validation compare that filled area with the original glyph and
 warn in amber when an edit adds more than 0.5 w²; strokes moved closer than 2w then
 print as solid ink. The warning does not fail validation, because acute joins such as
 N, K and v are filled by design. All-family validation also detects glyphs
 that disappear from Mono and tabular digits that exceed their width budget.
-Maximum thickness and open tight regions are informational, consistent with
-the current verification code; 3w dots and some joins exceed the original 2.85w
-two-bead threshold. A passing validation does **not** establish that every pair, TTF
+Thickness between the original 2.85w two-bead threshold and the 4.85w limit, and
+open tight regions, are informational, consistent with the current verification
+code; 3w dots and some joins exceed 2.85w. A passing validation does **not** establish that every pair, TTF
 rounding result, or sliced toolpath passes. The normal build and test suite remain
 the acceptance gate.
 
