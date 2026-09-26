@@ -1110,14 +1110,18 @@ class Startup(unittest.TestCase):
             make("fillaprint-tuner-legacy1")                           # no process id, a day old: removed
             make(f"fillaprint-tuner-{finished.pid}-x")                 # its server has exited: removed
             make("fillaprint-tuner-recent", time.time())               # in use recently: kept
-            make(f"fillaprint-tuner-{os.getpid()}-y")                  # its server is running: kept
+            running = make(f"fillaprint-tuner-{os.getpid()}-y")        # its server is running: kept, but see below
             make("unrelated-old-dir")
             elsewhere = make("elsewhere")
             link = Path(directory, "fillaprint-tuner-link")
             with contextlib.suppress(OSError, NotImplementedError):
                 link.symlink_to(elsewhere, target_is_directory=True)   # never followed
             removed = serve.remove_stale_caches(directory)
-            expected = {"fillaprint-tuner-legacy1"} | ({f"fillaprint-tuner-{finished.pid}-x"} if os.name == "posix" else set())
+            expected = {"fillaprint-tuner-legacy1", f"fillaprint-tuner-{finished.pid}-x"}
+            if os.name != "posix":
+                # Windows has no harmless probe for a process (serve._server_running), so a day without
+                # use is the whole test there: a running server's day-old cache goes too.
+                expected.add(running.name)
             self.assertEqual(set(removed), expected)
             self.assertEqual({p.name for p in Path(directory).iterdir()} & expected, set())
             self.assertTrue((elsewhere / "finished-v2.bin").exists())

@@ -284,7 +284,8 @@ class Handler(BaseHTTPRequestHandler):
 def remove_stale_caches(directory=None, now=None):
     """Remove glyph caches that tuner servers left in the temporary directory (a server that was
     killed cannot clean up): this user's own real directories, untouched for a day, whose server
-    is not running. Returns the names removed."""
+    is not running. Windows cannot tell whether that server runs, so there the day alone decides.
+    Returns the names removed."""
     directory = directory or tempfile.gettempdir()
     now = time.time() if now is None else now
     uid = os.getuid() if hasattr(os, "getuid") else None     # Windows: the temporary directory is per user
