@@ -29,8 +29,8 @@ from tuner import serve
 from tuner.model import (ACCENTS, COMMIT, FUNCTIONS, ROOT, SHARED, SOURCE_PATHS, Catalog, TunerError, number,
                          source_commit)
 from tuner.serve import MAX_BODY, Handler, TunerServer
-from tuner.worker import (CACHE_ENV, CACHE_SECRET_ENV, Beadjoint, FinishedCache, absent, explain, fill_change, finite,
-                          finishing_fingerprint, options)
+from tuner.worker import (CACHE_ENV, CACHE_SECRET_ENV, Beadjoint, FinishedCache, absent, check_message, checks,
+                          explain, fill_change, finite, finishing_fingerprint, options)
 
 HEX = "0123456789abcdef0123456789abcdef01234567"
 TEST_SECRET = "5e" * 32     # a fixed per-test-run cache secret; the server draws a random one
@@ -435,6 +435,7 @@ class WorkerLogic(unittest.TestCase):
         self.assertEqual(bj.line_min, verify.LINE_MIN)
         self.assertEqual(bj.mono_max, charset.MONO_MAX)
         self.assertEqual((bj.tab_cell, bj.tab_digit), (setting.CELL_F, setting.FIGURE_MAX))
+        self.assertEqual(bj.max_thickness, verify.SHIPPED_MAX_T)
         self.assertAlmostEqual(bj.tab_digit, 7.02)
 
     def test_fill_warning_threshold(self):
@@ -459,6 +460,25 @@ class WorkerLogic(unittest.TestCase):
             options({"char": "‮"}, bj)
         self.assertEqual(str(caught.exception), "Fillaprint has no glyph for U+202E.", "invisible characters by code only")
         self.assertEqual(options({"char": "ñ", "text": "a b"}, bj), ("P", "ñ", "a b", False))
+
+    def test_check_messages_name_what_the_build_would_reject(self):
+        bj = Beadjoint()
+        report = {"thickness": 5.5, "thin": [], "islands": [], "piece_gap": None, "fused": True}
+        self.assertEqual(check_message("ĳ (Proportional)", report, bj),
+                         "ĳ (Proportional): finishing joined separate pieces — keep them at least 1.98w apart; "
+                         "it is 5.5w thick at its thickest; the fonts allow at most 4.85w.")
+        report.update(thickness=2.8, fused=False, piece_gap=1.5)
+        self.assertEqual(check_message("x (Mono)", report, bj),
+                         "x (Mono): separate pieces are only 1.5w apart (at least 1.98w).")
+
+    def test_ink_over_the_shipped_maximum_fails_on_its_own(self):
+        bj = Beadjoint()
+        report = checks(geom.D((0, 0), 3), bj, "● (Proportional)")      # a 6w blob in one piece
+        self.assertGreater(report["thickness"], bj.max_thickness)
+        self.assertEqual((report["fused"], report["ok"]), (False, False))
+        self.assertEqual(check_message("● (Proportional)", report, bj),
+                         f"● (Proportional): it is {report['thickness']:g}w thick at its thickest; the fonts allow at most 4.85w.")
+        self.assertTrue(checks(geom.D((0, 0), 2), bj, "• (Proportional)")["ok"], "the 4w bullet is within the limit")
 
     def test_construction_errors_name_the_construction(self):
         message = build_error({slot("n", "Base", "S1 point 2 corner radius")["id"]: 8})
@@ -688,6 +708,27 @@ class WorkerRuns(unittest.TestCase):
         self.assertLessEqual({("P", "b"), ("T", "b")}, changed)
         self.assertFalse([c for c in changed if c[0] == "M"])
 
+    def test_pieces_joined_by_finishing_fail_as_in_the_build(self):
+        # ĳ is i and j set side by side (latin.specials shifts j by 2.5). Moving j 1.5w left puts
+        # the stems 1.5w apart, as v0.1.1's shift of 1 did: finishing fills the slit into a 5.5w
+        # slab. The build rejects that in every family, so validation must too. j itself changes
+        # but stays sound, and Mono's k keeps its designed join (verify.FUSED_BY_DESIGN).
+        self.edit("j", "Base", ("S1 point 1 x", "S1 point 2 x", "D2 point 1 x"), 2.5)
+        self.edit("k", "Mono", ("S2 point 1 x",), 7.9)
+        result = self.run_ok("P", "ĳ", "ĳ", True)
+        self.assertTrue(result["checks"]["fused"])
+        self.assertFalse(result["checks"]["ok"])
+        self.assertFalse(result["fill"]["warn"], "joined pieces fail; the amber warning is for fill that does not join")
+        failures = {(f["family"], f["char"], f["code"]): f["message"] for f in result["failures"]}
+        for family, name in (("P", "Proportional"), ("T", "Tab"), ("M", "Mono")):
+            self.assertEqual(failures[family, "ĳ", "checks"],
+                             f"ĳ ({name}): finishing joined separate pieces — keep them at least 1.98w apart; "
+                             "it is 5.5w thick at its thickest; the fonts allow at most 4.85w.")
+        changed = {(g["family"], g["char"]): g for g in result["changed"]}
+        self.assertFalse(changed["P", "j"]["failed"])
+        self.assertEqual((changed["M", "k"]["failed"], changed["M", "k"]["checks"]["fused"]), (False, False))
+        self.assertNotIn("P:ĳ", result["warnings"])
+
     def test_emptied_glyphs_are_reported_not_fatal(self):
         # A dot radius of 0 is in range and empties the period. Its bounds are NaN, which would
         # break the preview line and JSON; it must be reported instead, as "no ink", not "too wide".
@@ -696,7 +737,7 @@ class WorkerRuns(unittest.TestCase):
         failures = {(f["family"], f["char"], f["code"]): f["message"] for f in result["failures"]}
         # Every emptied glyph is reported, not only the first one validation reaches.
         self.assertLessEqual({("P", c, "checks") for c in ".:·…"}, set(failures))
-        self.assertEqual(failures["P", ".", "checks"], "Proportional .: the edit leaves no ink to print.")
+        self.assertEqual(failures["P", ".", "checks"], ". (Proportional): the edit leaves no ink to print.")
         self.assertEqual(failures["M", ".", "disappeared"], "Mono leaves out .: after this edit it has no ink to print.")
         self.assertEqual(len(result["text_paths"]), 1, "the empty period is left out of the preview line")
         changed = {(g["family"], g["char"]): g for g in result["changed"]}
@@ -723,13 +764,19 @@ class WorkerRuns(unittest.TestCase):
 
     def test_fill_meter_covers_every_glyph(self):
         # Warnings rely on finished geometry reaching the Glyph records unchanged; a pipeline
-        # change that breaks that would otherwise silence them without failing anything.
+        # change that breaks that would otherwise silence them without failing anything. The
+        # fused-pieces check reads the meter's record of what finishing received, which must be
+        # exactly what the build checks (charset.finish_inputs).
         script = ("from tuner.worker import Beadjoint, FillMeter\n"
                   "bj = Beadjoint()\n"
                   "meter = FillMeter(bj)\n"
-                  "for glyphs in (bj.charset.full_p(), bj.charset.full_mixed(), bj.charset.full_m()):\n"
+                  "families = {'P': bj.charset.full_p(), 'T': bj.charset.full_mixed(), 'M': bj.charset.full_m()}\n"
+                  "inputs = bj.charset.finish_inputs()\n"
+                  "for name, glyphs in families.items():\n"
                   "    missing = [c for c, g in glyphs.items() if meter.filled(g.geom) is None]\n"
                   "    assert not missing, missing\n"
+                  "    other = [c for c, g in glyphs.items() if meter.finish_input(g.geom) is not inputs[name][c]]\n"
+                  "    assert not other, (name, other)\n"
                   "    assert meter.filled(glyphs['N'].geom) > 1, 'acute joins are filled by design'\n"
                   "    for accented, base in (('í', 'ı'), ('ĵ', 'ȷ'), ('ñ', 'n')):\n"
                   "        assert meter.finished[id(glyphs[accented].geom)][2] is glyphs[base].geom, accented\n")

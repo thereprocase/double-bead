@@ -65,6 +65,7 @@ class Beadjoint:
         self.mono_max = self.charset.MONO_MAX         # widest ink Mono keeps
         self.tab_cell = self.setting.CELL_F            # Tab centres every digit in a cell this wide
         self.tab_digit = self.setting.FIGURE_MAX       # widest digit ink that keeps the line gap between cells
+        self.max_thickness = self.verify.SHIPPED_MAX_T  # thickest ink the build accepts in a finished glyph
 
     @staticmethod
     def reload(edited):
@@ -241,8 +242,10 @@ class FillMeter:
     through its module globals, so the wrappers go on the modules of one Beadjoint: create a
     new meter for the modules imported after an edit. Results are keyed by the finished
     geometry object, which the families store unchanged in their Glyph records. A composite
-    also carries the fill of the finished base it was composed from. With a FinishedCache,
-    unchanged inputs are read back with their recorded fill instead of being finished again.
+    also carries the fill of the finished base it was composed from. Every record keeps the
+    geometry finishing received, which the fused-pieces check compares with the result. With a
+    FinishedCache, unchanged inputs are read back with their recorded fill instead of being
+    finished again; the recorded input is the one this build passed either way.
     """
 
     def __init__(self, bj, cache=None, persist=False):
@@ -277,7 +280,7 @@ class FillMeter:
                 if cache:
                     cache.put(key, area, out.wkb, persist)
             _, base = composed.pop(id(g), (None, None))
-            self.finished[id(out)] = (out, area, base)
+            self.finished[id(out)] = (out, area, base, g)
             self.outputs[key] = out
             return out
 
@@ -289,12 +292,17 @@ class FillMeter:
         """The finished glyph this meter recorded for raw input geometry, or None."""
         return self.outputs.get(FinishedCache.key(self.fingerprint, raw))
 
+    def finish_input(self, geom):
+        """The geometry finishing received for a finished glyph, or None if unmetered."""
+        record = self.finished.get(id(geom))
+        return record[3] if record else None
+
     def filled(self, geom, depth=0):
         """Filled area in w² for a finished glyph, including its base's fill; None if unmetered."""
         record = self.finished.get(id(geom))
         if record is None or depth > 4:
             return None
-        _, area, base = record
+        _, area, base, _ = record
         base_area = self.filled(base, depth + 1) if base is not None else 0.0
         return area + (base_area or 0.0)
 
@@ -324,8 +332,23 @@ def no_outline(title, g):
     return f"{title}: the edit leaves an outline that is not a valid shape (it crosses itself)."
 
 
-def checks(g, bj, title):
-    """The geometry checks of one finished glyph; TunerError when its outline cannot be checked."""
+def glyph_title(family, char):
+    return f"{char} ({FAMILY_NAMES[family]})"
+
+
+def joined_by_finishing(bj, meter, family, char, glyph):
+    """Whether finishing joined pieces of the glyph that its input kept apart, as the build checks:
+    verify.fused_pieces on what finishing received and returned, less the family's designed joins."""
+    source = meter.finish_input(glyph.geom)
+    if source is None or char in bj.verify.FUSED_BY_DESIGN.get(family, ()):
+        return False
+    return bool(bj.verify.fused_pieces({char: glyph}, {char: source}))
+
+
+def checks(g, bj, title, fused=False):
+    """The geometry checks of one finished glyph, with the gates the build fails on: no thin ink or
+    thin holes, pieces LINE_MIN apart, no ink over SHIPPED_MAX_T and no pieces joined by finishing
+    (fused, from joined_by_finishing). TunerError when the outline cannot be checked."""
     if not usable(g):
         raise TunerError(no_outline(title, g), "invalid_glyph")
     extent = max(g.bounds[2] - g.bounds[0], g.bounds[3] - g.bounds[1])
@@ -335,26 +358,33 @@ def checks(g, bj, title):
     r = bj.verify.check_glyph(g)
     gap = bj.verify.piece_gap(g)                     # inf for a glyph of one piece
     r["piece_gap"] = round(gap, 3) if math.isfinite(gap) else None
-    r["ok"] = r["ok"] and gap >= bj.line_min
+    r["fused"] = fused
+    r["ok"] = r["ok"] and gap >= bj.line_min and r["thickness"] <= bj.max_thickness and not fused
     return r
 
 
 def check_message(title, report, bj):
     problems = []
+    if report["fused"]:
+        problems.append(f"finishing joined separate pieces — keep them at least {bj.line_min:g}w apart")
+    if report["thickness"] > bj.max_thickness:
+        problems.append(f"it is {report['thickness']:g}w thick at its thickest; the fonts allow at most "
+                        f"{bj.max_thickness:g}w")
     if report["thin"]:
-        problems.append("ink narrower than 2w, which cannot print")
+        problems.append("it has ink narrower than 2w, which cannot print")
     if report["islands"]:
-        problems.append("a hole narrower than 2w enclosed by ink")
+        problems.append("it encloses a hole narrower than 2w")
     gap = report["piece_gap"]
     if gap is not None and gap < bj.line_min:
-        problems.append(f"separate pieces only {gap:g}w apart (at least {bj.line_min:g}w)")
-    return f"{title} fails the print checks: {'; '.join(problems) or 'see the readouts'}."
+        problems.append(f"separate pieces are only {gap:g}w apart (at least {bj.line_min:g}w)")
+    return f"{title}: {'; '.join(problems) or 'it fails the print checks'}."
 
 
 def tab_too_wide(bj, family, char, glyph):
     if family == "T" and char.isascii() and char.isdigit() and glyph.width > bj.tab_digit:
-        return (f"Tab {char} is {glyph.width:.2f}w wide. Tab gives every digit the same {bj.tab_cell:g}w cell, so a "
-                f"digit wider than {bj.tab_digit:g}w comes closer than {bj.line_min:g}w to its neighbours.")
+        return (f"{glyph_title('T', char)} is {glyph.width:.2f}w wide. Tab gives every digit the same "
+                f"{bj.tab_cell:g}w cell, so a digit wider than {bj.tab_digit:g}w comes closer than "
+                f"{bj.line_min:g}w to its neighbours.")
     return None
 
 
@@ -530,11 +560,12 @@ def run(request):
     if missing:
         raise TunerError(absent(bj, family, missing) + " Remove it from the preview text, or preview Proportional "
                          "or Tab.", "text_glyphs")
-    title = f"{FAMILY_NAMES[family]} {char}"
+    title = glyph_title(family, char)
     current = glyphs[char].geom
     bounds = (before.union(current) if before is not None else current).bounds
+    fused = joined_by_finishing(bj, after_meter, family, char, glyphs[char])
     result = {"before": outline(before) if before is not None else "", "after": outline(current), "bounds": list(bounds),
-              "checks": checks(current, bj, title), "width": round(glyphs[char].width, 4), "family": family,
+              "checks": checks(current, bj, title, fused), "width": round(glyphs[char].width, 4), "family": family,
               "changed": [], "failures": failures, "warnings": [], "validation": validate}
     if not result["checks"]["ok"]:
         failures.add(family, char, "checks", check_message(title, result["checks"], bj))
@@ -542,7 +573,8 @@ def run(request):
     if too_wide:
         failures.add(family, char, "tabular_width", too_wide)
     fill_before, fill_after, fill_warn = fill_change(before_meter, before, after_meter, current, bj.fill_warn)
-    result["fill"] = {"before": fill_before, "after": fill_after, "warn": fill_warn}
+    # Fill that joins pieces is a failure; the amber warning is for fill that does not.
+    result["fill"] = {"before": fill_before, "after": fill_after, "warn": fill_warn and not fused}
     set_text(result, bj, after_meter, family, text, glyphs, failures)
     if validate:
         for f in FAMILY_NAMES:
@@ -558,7 +590,7 @@ def set_text(result, bj, meter, family, text, glyphs, failures):
         if c not in glyphs:
             failures.add(family, c, "disappeared", left_out(bj, meter, family, c))
         elif not usable(glyphs[c].geom):
-            failures.add(family, c, "checks", no_outline(f"{FAMILY_NAMES[family]} {c}", glyphs[c].geom))
+            failures.add(family, c, "checks", no_outline(glyph_title(family, c), glyphs[c].geom))
     kept = "".join(c for c in text if c == " " or c in glyphs and usable(glyphs[c].geom))
     line = bj.setters[family](kept, glyphs)
     result["text_paths"] = [outline(g) for _, g, _ in line]
@@ -583,14 +615,16 @@ def validate_family(result, bj, family, baseline, new, before_meter, after_meter
     for c, glyph in new.items():
         if c in old and glyph.geom.equals_exact(old[c].geom, 1e-8):
             continue
-        title = f"{FAMILY_NAMES[family]} {c}"
+        title = glyph_title(family, c)
         entry = {"family": family, "char": c, "checks": None, "fill_warn": False}
         try:
-            entry["checks"] = checks(glyph.geom, bj, title)
+            fused = joined_by_finishing(bj, after_meter, family, c, glyph)
+            entry["checks"] = checks(glyph.geom, bj, title, fused)
             # A glyph that newly fits Mono has no Mono original; every character is in P.
             reference = old.get(c) or baseline["P"].get(c)
-            *_, entry["fill_warn"] = fill_change(before_meter, reference.geom if reference else None, after_meter,
-                                                 glyph.geom, bj.fill_warn)
+            *_, fill_warn = fill_change(before_meter, reference.geom if reference else None, after_meter,
+                                        glyph.geom, bj.fill_warn)
+            entry["fill_warn"] = fill_warn and not fused
         except TunerError as exc:
             failures.add(family, c, "checks", str(exc))
         except Exception:
