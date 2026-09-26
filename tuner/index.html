@@ -40,6 +40,7 @@
           >Repository ↗</a
         >
       </nav>
+      <div id="notices" class="notices" aria-live="polite"></div>
       <main>
         <aside>
           <h2 class="rail-title">Constructions</h2>
@@ -52,7 +53,7 @@
           <p class="muted" id="count">Loading source parameters…</p>
           <div id="targets" aria-label="Glyph constructions"></div>
         </aside>
-        <section class="workspace">
+        <section class="workspace" id="workspace" data-preview="stale">
           <div class="toolbar">
             <div>
               <label for="glyph">Preview glyph</label
@@ -89,17 +90,22 @@
           </div>
           <div class="drawing">
             <h2 class="pane-title">
-              Outline / construction <span>1 grid = 1w</span>
+              Outline / construction
+              <b id="preview-tag" class="state-tag" hidden>Stale</b>
+              <span class="scale-note"
+                >1 grid = 1w · numbers every 2w · y down</span
+              >
             </h2>
             <svg
               id="canvas"
               viewBox="-3 -8 20 26"
-              aria-label="Glyph geometry with draggable construction points"
+              aria-label="Glyph geometry with draggable construction points; each point's fields are under Parameters"
             ></svg>
             <div class="legend">
               <span class="before-dot"></span> Original
               <span class="after-dot"></span> Edited
-              <span class="handle-dot"></span> Construction point
+              <span class="handle-dot"></span> Construction point · hover
+              for its name
             </div>
           </div>
           <div id="status" role="status">Choose a glyph construction.</div>
@@ -117,11 +123,13 @@
             <button id="validate">
               Validate changed glyphs · all families
             </button>
-            <p id="validation" class="muted">
-              Preview checks one glyph and the sample line. Full validation
-              checks all changed outlines and derived accents across the three
-              families.
-            </p>
+            <div id="validation" class="validation-summary" tabindex="-1">
+              <p class="muted">
+                Preview checks one glyph and the sample line. Full validation
+                checks all changed outlines and derived accents across the three
+                families.
+              </p>
+            </div>
             <div id="affected"></div>
           </div>
           <p class="footnote">
@@ -137,6 +145,7 @@
           </div>
           <p id="source" class="muted"></p>
           <p id="handle-help" class="muted"></p>
+          <dl id="constructors" class="constructors" hidden></dl>
           <div id="controls"></div>
           <p class="muted">
             Changes to shared bases or marks also affect derived glyphs.
