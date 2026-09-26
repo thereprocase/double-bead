@@ -40,6 +40,7 @@
           >Repository ↗</a
         >
       </nav>
+      <div id="notices" class="notices" aria-live="polite"></div>
       <main>
         <aside>
           <h2 class="rail-title">Constructions</h2>
@@ -50,9 +51,9 @@
             placeholder="a, capitals, accent…"
           />
           <p class="muted" id="count">Loading source parameters…</p>
-          <div id="targets" aria-label="Glyph constructions"></div>
+          <div id="targets" aria-label="Glyph constructions" tabindex="-1"></div>
         </aside>
-        <section class="workspace">
+        <section class="workspace" id="workspace" data-preview="stale">
           <div class="toolbar">
             <div>
               <label for="glyph">Preview glyph</label
@@ -89,20 +90,34 @@
           </div>
           <div class="drawing">
             <h2 class="pane-title">
-              Outline / construction <span>1 grid = 1w</span>
+              Outline / construction
+              <b id="preview-tag" class="state-tag" hidden>Stale</b>
+              <span class="scale-note"
+                >1 grid = 1w · numbers every 2w · y down</span
+              >
             </h2>
             <svg
               id="canvas"
               viewBox="-3 -8 20 26"
-              aria-label="Glyph geometry with draggable construction points"
+              aria-label="Glyph geometry with draggable construction points; each point's fields are under Parameters"
             ></svg>
             <div class="legend">
-              <span class="before-dot"></span> Original
-              <span class="after-dot"></span> Edited
-              <span class="handle-dot"></span> Construction point
+              <span class="key"><span class="swatch before-dot"></span>Original</span>
+              <span class="key"><span class="swatch after-dot"></span>Edited</span>
+              <span class="key"
+                ><span class="swatch handle-dot"></span>Construction point<span
+                  class="hover-only"
+                >
+                  · hover for its name</span
+                ></span
+              >
             </div>
           </div>
-          <div id="status" role="status">Choose a glyph construction.</div>
+          <div class="status-line">
+            <div id="status" role="status">Choose a glyph construction.</div>
+            <span id="elapsed" aria-hidden="true"></span>
+          </div>
+          <div id="announce" class="visually-hidden" role="status"></div>
           <div class="readouts" id="readouts"></div>
           <div class="preview">
             <label for="text">In context · actual source spacing</label
@@ -117,12 +132,14 @@
             <button id="validate">
               Validate changed glyphs · all families
             </button>
-            <p id="validation" class="muted">
-              Preview checks one glyph and the sample line. Full validation
-              checks all changed outlines and derived accents across the three
-              families.
-            </p>
-            <div id="affected"></div>
+            <div id="validation" class="validation-summary" tabindex="-1">
+              <p class="muted">
+                Preview checks one glyph and the sample line. Full validation
+                checks all changed outlines and derived accents across the three
+                families.
+              </p>
+            </div>
+            <div id="affected" tabindex="-1"></div>
           </div>
           <p class="footnote">
             Stroke width stays 2w. Coordinates and radii are in extrusion
@@ -136,7 +153,8 @@
             <button id="reset">Reset glyph</button>
           </div>
           <p id="source" class="muted"></p>
-          <p id="handle-help" class="muted"></p>
+          <p id="handle-help" class="muted" tabindex="-1"></p>
+          <div id="constructors" class="constructors" hidden></div>
           <div id="controls"></div>
           <p class="muted">
             Changes to shared bases or marks also affect derived glyphs.
