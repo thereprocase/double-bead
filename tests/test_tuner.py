@@ -174,8 +174,7 @@ class CatalogStructure(unittest.TestCase):
         c = catalog()
         groups = {t["group"] for t in c.targets}
         for construction in [*FUNCTIONS.values(), *SHARED.values()]:
-            if construction.required:
-                self.assertIn(construction.group, groups)
+            self.assertIn(construction.group, groups)
         for name in ACCENTS:
             self.assertIn("Accent " + name, groups)
         ids = [s["id"] for t in c.targets for s in t["slots"]]
@@ -232,7 +231,7 @@ class CatalogStructure(unittest.TestCase):
 
     def test_replaced_constructions_are_dropped(self):
         c = catalog()
-        expected = {("Base", "1"), ("Base", "w")} | ({("Mono", "w")} if hasattr(charset, "raw_m") else set())
+        expected = {("Base", "1"), ("Base", "w"), ("Mono", "w")}
         self.assertEqual(set(c.superseded), expected)
         for group, char in expected:
             self.assertFalse([t for t in c.targets if (t["group"], t["char"]) == (group, char)])
@@ -246,10 +245,7 @@ class CatalogStructure(unittest.TestCase):
         out = {"_raw_p": p, "capitals": cap, "symbols": sym, "specials": latin.specials(p, cap, sym),
                "mono_narrow": latin.mono_narrow(), "_raw_m_rebuilt": glyphs._raw_m_rebuilt(),
                "_raw_one_tabular": glyphs._raw_one_tabular(), "square_w": latin.square_w(),
-               "_pointed_m": latin._pointed_m()}
-        for name in ("extras", "mono_extras"):
-            if hasattr(latin, name):
-                out[name] = getattr(latin, name)()
+               "_pointed_m": latin._pointed_m(), "extras": latin.extras(), "mono_extras": latin.mono_extras()}
         return out
 
     def constructions(self, family):
@@ -270,7 +266,6 @@ class CatalogStructure(unittest.TestCase):
         for t, built in found:
             self.assertEqual(raw[t["char"]].wkb, built.wkb, f"{t['group']} {t['char']} is not what Proportional uses")
 
-    @unittest.skipUnless(hasattr(charset, "raw_m"), "needs charset.raw_m() from the font-code change")
     def test_every_mono_construction_is_what_the_fonts_use(self):
         raw = charset.raw_m()
         found = self.constructions("M")
@@ -279,14 +274,6 @@ class CatalogStructure(unittest.TestCase):
             # glyphs.set_m softens the rebuilt glyphs before charset assembles Mono
             self.assertIn(raw[t["char"]].wkb, (built.wkb, geom.soft(built).wkb), f"Mono {t['char']}")
 
-    def test_moved_constructions_become_required(self):
-        for name in ("extras", "mono_extras"):
-            with self.subTest(name=name):
-                self.assertEqual(FUNCTIONS[name].required, hasattr(latin, name),
-                                 f"latin.{name} exists now: make it required in tuner/model.py FUNCTIONS")
-
-    @unittest.skipUnless(hasattr(latin, "extras") and hasattr(latin, "mono_extras"),
-                         "needs latin.extras() and latin.mono_extras() from the font-code change")
     def test_moved_constructions_are_catalogued(self):
         groups = {(t["group"], t["char"]) for t in catalog().targets}
         self.assertLessEqual({("Specials", c) for c in "¸˛ŉ"} | {("Mono", c) for c in "ıȷ…"}, groups)

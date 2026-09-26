@@ -37,8 +37,8 @@ class Construction:
     the finished glyph's own coordinates, so its points may be dragged. char names the one glyph a
     helper returns; None for a function that fills a dict (g["a"] = ...). args are the construction
     functions whose results charset passes to this one, in order. softened: the family receives
-    these glyphs through glyphs.set_m, which applies soft() first. A required construction that is
-    missing stops the tuner, so a rename in the sources cannot silently drop it.
+    these glyphs through glyphs.set_m, which applies soft() first. A construction that is missing
+    stops the tuner, so a rename in the sources cannot silently drop it.
     """
     group: str
     family: str = "P"
@@ -46,7 +46,6 @@ class Construction:
     char: str | None = None
     args: tuple = ()
     softened: bool = False
-    required: bool = True
 
 
 FUNCTIONS = {
@@ -59,10 +58,8 @@ FUNCTIONS = {
     "mono_narrow": Construction("Mono", "M", handles=False),
     "square_w": Construction("Shared w", char="w"),
     "_pointed_m": Construction("Shared M / W", handles=False, char="M"),
-    # Moved out of charset into latin.py by a separate change. Required once that change is merged;
-    # test_moved_constructions_become_required fails until then.
-    "extras": Construction("Specials", required=False),
-    "mono_extras": Construction("Mono", "M", handles=False, required=False),
+    "extras": Construction("Specials"),
+    "mono_extras": Construction("Mono", "M", handles=False),
 }
 # Pieces a construction function assigns to a local name and reuses in several glyphs.
 SHARED = {
@@ -87,16 +84,6 @@ def number(node):
         if v is not None:
             return -v if isinstance(node.op, ast.USub) else v
     return None
-
-
-def compose_base(marks, base, names):
-    """The finished base marks.compose reads for base + marks: dotless ı and ȷ under marks above."""
-    if hasattr(marks, "mark_base"):
-        return marks.mark_base(base, names)
-    # Until marks.mark_base is merged: the rule marks.compose applies, restated.
-    if any(m not in ("cedilla", "ogonek", "commabelow") for m in names):
-        return {"i": "ı", "j": "ȷ"}.get(base, base)
-    return base
 
 
 def source_commit(root=ROOT):
@@ -205,7 +192,7 @@ class Catalog:
 
     def _check_found(self):
         """Refuse to start when a listed construction is missing or yields nothing to edit."""
-        wanted = [(name, f"{name}() ({c.group})") for name, c in FUNCTIONS.items() if c.required]
+        wanted = [(name, f"{name}() ({c.group})") for name, c in FUNCTIONS.items()]
         wanted += [(key, f"{key[1]} in {key[0]}() ({c.group})") for key, c in SHARED.items()]
         wanted += [(("SHAPES", name), f"marks.SHAPES[{name!r}]") for name in ACCENTS]
         wanted += [("SHAPES", "SHAPES"), ("DOT", "DOT")]
@@ -227,9 +214,7 @@ class Catalog:
         assembles. Editing a replaced construction would change nothing in the fonts.
         """
         charset, geom, marks = (importlib.import_module("beadjoint." + m) for m in ("charset", "geom", "marks"))
-        raw = {"P": charset.raw_p()}
-        if hasattr(charset, "raw_m"):          # Mono is checked once charset exposes its raw glyphs
-            raw["M"] = charset.raw_m()
+        raw = {"P": charset.raw_p(), "M": charset.raw_m()}
         outputs = {}
 
         def output(name):
@@ -244,7 +229,7 @@ class Catalog:
         dropped = set()
         for target in self.targets:
             name = self._origin.get(target["id"])
-            if name is None or target["family"] not in raw:
+            if name is None:
                 continue
             construction = FUNCTIONS[name]
             built = output(name) if construction.char else output(name).get(target["char"])
@@ -261,7 +246,7 @@ class Catalog:
             parts = marks.decompose(ch) if ch not in raw["P"] else None
             if parts:
                 base, names = parts
-                self.derived[ch] = {"base": compose_base(marks, base, names), "marks": names}
+                self.derived[ch] = {"base": marks.mark_base(base, names), "marks": names}
 
     def _target(self, path, node, char, construction, roots, origin=None, title=None, scalar=False):
         ident = f"{path}:{node.lineno}:{node.col_offset}"

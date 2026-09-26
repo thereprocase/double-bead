@@ -15,7 +15,7 @@ import sys
 import traceback
 from pathlib import Path
 
-from .model import ROOT, SOURCE_PATHS, Catalog, TunerError, compose_base
+from .model import ROOT, SOURCE_PATHS, Catalog, TunerError
 
 FAMILY_NAMES = {"P": "Proportional", "T": "Tab", "M": "Mono"}
 # Runaway geometry, not a design rule: coordinates stay within ±32w, and check_glyph rasterises
@@ -167,7 +167,7 @@ class FillMeter:
             out = real_compose(ch, base, names, fin, *args, **kwargs)
             # compose draws marks above on dotless ı and ȷ, so the decomposed base letter is not
             # always the glyph it read.
-            composed[id(out)] = (out, fin[compose_base(marks, base, names)])
+            composed[id(out)] = (out, fin[marks.mark_base(base, names)])
             return out
 
         def finish(g):
