@@ -25,6 +25,13 @@ if (-not $Version) {
   }
 }
 
+# Defense in depth: $Version becomes part of a file name and a registry value name below
+# (whether it came from -Version or from parsing release.py). Reject anything that isn't
+# the expected "<major>.<minor>" shape before it reaches Join-Path/New-ItemProperty.
+if ($Version -notmatch '^[0-9]+\.[0-9]+$') {
+  throw "Invalid font version '$Version' (expected form like 0.101, from -Version or beadjoint/release.py)."
+}
+
 $dst = Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts'
 New-Item -ItemType Directory -Force -Path $dst | Out-Null
 $key = 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts'
