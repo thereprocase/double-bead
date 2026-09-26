@@ -154,9 +154,11 @@ header :focus-visible {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-/* Lists that take focus back after a rebuild; the focused control inside shows the ring. */
+/* Lists and text that take focus back when the control in them disappears: a lighter ring
+   than a control's, so keyboard users still see where they are. */
 [tabindex="-1"]:focus {
-  outline: none;
+  outline: 1px dashed var(--gl-cyan);
+  outline-offset: 2px;
 }
 code {
   font: 0.92em var(--font-mono);
@@ -595,9 +597,6 @@ aside {
 }
 .validation-summary {
   margin: 12px 0 8px;
-}
-.validation-summary:focus {
-  outline: none;
 }
 .validation-summary p {
   margin: 0 0 6px;

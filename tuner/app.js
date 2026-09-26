@@ -52,13 +52,15 @@ const HOVER = matchMedia("(hover: hover)").matches;
 // Whole-request errors that repeat until the edit changes, and those about the preview inputs.
 const UNDO_CODES = ["construction", "invalid_glyph", "disappeared"];
 const FAMILY_CODES = ["disappeared", "not_in_family", "text_glyphs"];
-// Failures that may pass on a second try: no server, a stuck worker, another tab.
+// Failures that may pass on a second try: no server, a stuck worker, another tab, or the
+// server's connection cap (503 with Retry-After).
 const TRANSIENT_CODES = [
   "offline",
   "timeout",
   "worker_failed",
   "internal",
   "busy",
+  "too_many_connections",
   "error",
 ];
 
@@ -162,9 +164,14 @@ function message(text, level = "", actions = []) {
 }
 // Outcomes that appear away from the focus (the validation block) are read out from here.
 function announce(text) {
-  $("announce").textContent = "";
-  // Clearing first lets a screen reader repeat news identical to the last.
-  setTimeout(() => ($("announce").textContent = text), 50);
+  const region = $("announce");
+  if (region.textContent !== text) {
+    region.textContent = text;
+    return;
+  }
+  // The same news again: clear first so a screen reader reads it once more.
+  region.textContent = "";
+  setTimeout(() => (region.textContent = text), 50);
 }
 // Notices stay until dismissed or replaced; every preview rewrites the status line.
 // actions: [label, run, primary]; a notice with no dismiss button needs a decision.
@@ -399,10 +406,12 @@ async function drain() {
       previewMessage(result, req.body);
     }
   } catch (e) {
-    if (e.code === "busy" || e.status === 409) {
-      if (waitForServer(req)) return;
-      e.message =
-        "The server stayed busy with another preview for a minute (another tuner tab, or this page before a reload). Retry when it has finished.";
+    const refused = e.code === "too_many_connections" || e.status === 503;
+    if (e.code === "busy" || e.status === 409 || refused) {
+      if (waitForServer(req, refused)) return;
+      e.message = refused
+        ? "The tuner server refused connections for about a minute because too many were open. Close other tuner tabs, then Retry."
+        : "The server stayed busy with another preview for a minute (another tuner tab, or this page before a reload). Retry when it has finished.";
     } else busy = null;
     // A newer validation already waiting speaks for these edits instead.
     if (req.body.validate && !pending?.body.validate)
@@ -417,14 +426,21 @@ async function drain() {
     clearInterval(ticker);
     $("validate").disabled = false;
     if (pending) drain();
-    // Something outdated this request without asking for a new one: catch up now.
-    else if (req.revision !== revision && !timer && previewState === "stale")
+    // Something outdated this request without asking for a new one: catch up now. A drag
+    // asks for its own preview on release.
+    else if (
+      req.revision !== revision &&
+      !timer &&
+      !drag &&
+      previewState === "stale"
+    )
       schedule();
   }
 }
-// The server computes one preview at a time and answers 409 to everyone else. Returns true
-// when the 409 is handled: a retry is waiting, or the request is obsolete and dropped.
-function waitForServer(req) {
+// The server computes one preview at a time and answers 409 to everyone else, and 503 when
+// too many connections are open. Returns true when that is handled: a retry is waiting, or
+// the request is obsolete and dropped.
+function waitForServer(req, refused) {
   const now = Date.now();
   busy ??= { since: now, delay: 1000, timer: null };
   const wait = Math.min(busy.delay, busy.since + BUSY_LIMIT - now);
@@ -439,7 +455,9 @@ function waitForServer(req) {
   }
   busy.delay *= 2;
   message(
-    "Another tuner tab is computing (or this page before a reload) — retrying…",
+    refused
+      ? "The tuner server has too many open connections — retrying…"
+      : "Another tuner tab is computing (or this page before a reload) — retrying…",
     "progress",
   );
   busy.timer = setTimeout(() => {
@@ -1120,12 +1138,14 @@ function failuresOf(r) {
     .sort((a, b) => rank(a) - rank(b));
 }
 function previewMessage(result, body) {
-  // A validation result lists every failure; the status line is about this glyph and line.
+  // A validation result lists every failure; the status line is about this glyph and the
+  // sample line, including any glyph of the line that fails in this family.
   const fails = failuresOf(result).filter(
     (f) =>
       !result.validation ||
       f.code === "text_gap" ||
-      (f.char === body.char && f.family === body.family),
+      (f.family === body.family &&
+        (f.char === body.char || (f.char && body.text.includes(f.char)))),
   );
   if (!result.checks.ok && !fails.some((f) => f.char === body.char))
     fails.unshift({
@@ -1220,15 +1240,19 @@ function fillValidation(box) {
   const oldEdits = validation.edits !== editsKey();
   const oldSample = validation.sample !== sampleKey();
   const [family, text] = JSON.parse(validation.sample);
+  // Revalidating would repeat the request that could not run; its own fix is offered instead.
+  const again = error
+    ? ""
+    : focusKey(button("Revalidate", () => schedule(true), "inline"), "revalidate");
   const staleNote =
     (oldEdits || oldSample) &&
     node(
       "p",
       { className: "stale-note" },
       oldEdits
-        ? "Results for earlier edits — revalidate. "
-        : `Results for earlier settings — revalidate. The sample-line check used “${text}” in ${FAMILY_NAMES[family]}. `,
-      focusKey(button("Revalidate", () => schedule(true), "inline"), "revalidate"),
+        ? `Results for earlier edits${error ? "." : " — revalidate. "}`
+        : `Results for earlier settings${error ? "." : " — revalidate."} The sample-line check used “${text}” in ${FAMILY_NAMES[family]}. `,
+      again,
     );
   const glyphs = plural(r.changed.length, "changed glyph");
   const outcome = fails.length
@@ -1413,8 +1437,10 @@ $("canvas").onpointermove = (e) => {
   if (!drag.moved) {
     drag.moved = true;
     remember();
-    // Discard any preview already running: it shows the values from before the drag.
+    // Discard any preview already running: it shows the values from before the drag. A
+    // validation asked for earlier was for those values too, not for in-between positions.
     revision++;
+    wantValidation = false;
     setPreview("stale");
   }
   for (const axis of ["x", "y"]) {
@@ -1503,7 +1529,7 @@ function validateForExport() {
   notice(
     "export",
     "info",
-    "Validating these edits in all three families; this usually takes 5 to 20 seconds. The result appears here.",
+    "Validating these edits in all three families; this usually takes 5 to 30 seconds. The result appears here.",
   );
 }
 // "M:n, M:ñ and 3 more"; the validation block lists the full messages.
@@ -1583,7 +1609,12 @@ async function exportPatch() {
       "Your browser saved fillaprint-glyphs.patch (usually in Downloads). Stop the tuner, then in the repository run `git apply --check <path to the patch>` and `git apply <path to the patch>`, rebuild and test. docs/TUNER.md lists every step.",
     );
   } catch (e) {
-    notice("export", "error", "Patch not exported. " + e.message);
+    notice(
+      "export",
+      "error",
+      "Patch not exported. " + e.message,
+      TRANSIENT_CODES.includes(e.code) ? [["Retry", exportPatch, true]] : [],
+    );
   }
 }
 
@@ -1709,8 +1740,12 @@ async function restore() {
   try {
     await post("/api/export", { session: saved });
   } catch (e) {
-    // Without a server the autosave cannot be checked; keep it rather than overwrite it.
-    if (e.code === "offline") throw e;
+    // Only a session this checkout cannot use is set aside; a server that is unreachable,
+    // busy or restarting cannot judge the autosave, so keep it rather than overwrite it.
+    const unusable =
+      ["stale_session", "bad_session"].includes(e.code) ||
+      (!e.code && e.status === 400);
+    if (!unusable) throw e;
     download(
       "fillaprint-previous-session.json",
       JSON.stringify(saved, null, 2) + "\n",
