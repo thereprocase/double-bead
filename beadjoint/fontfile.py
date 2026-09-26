@@ -15,9 +15,10 @@ Kerning (spec 10, scaled up): an accented letter shares its base letter's side b
 class on each side where its ink ends within 0.3w of the base's; class pairs are computed on the
 base glyphs. Every actual pair is then checked for the 1.98w true-distance floor with the class
 kern applied, and gets its own exception kern where a mark would collide. Word space: the space is
-kerned against every glyph so the ink-to-ink gap across a space is WORD (Tab font: a figure after
-a space starts its 9w cell at that edge). GPOS 'kern' carries all of it; a legacy 'kern' table
-carries the ASCII pairs for programs that only read that (FreeType's FT_Get_Kerning, GDI).
+kerned against every glyph so the gap across a space is WORD between word-space edges (see
+_space_pairs). A Tab figure after a space is placed by its own edge like any glyph, not by its 9w
+cell, as in setting.mixed. GPOS 'kern' carries all of it; a legacy 'kern' table carries the ASCII
+pairs for programs that only read that (FreeType's FT_Get_Kerning, GDI).
 """
 import os
 from datetime import datetime
@@ -281,10 +282,13 @@ def build_font(path, family, glyphs, lsb, rsb, space, fea=None, legacy=None, mon
     return {"glyphs": len(glyphs), "win": [win_asc, win_desc]}
 
 
-def _space_pairs(glyphs, lsb, rsb, half, cells=None):
+def _space_pairs(glyphs, lsb, rsb, half):
     """Kerns against the space (advance WORD - 2*half) so the gap across a space is WORD between the
     word-space edges (setting._edges: descender overhangs count half), as the setting engine does.
-    The engine's whole-previous-word edge and 3.5w floor cannot be expressed as pair kerns."""
+    A Tab figure after a space gets the same kern from its own bearing, so its edge (for a figure,
+    its ink) lands WORD past the previous glyph's, not the edge of its 9w cell: setting.mixed starts
+    a figure run the same way. The engine measures from the whole previous word's edge and keeps a
+    3.5w floor to all of it; pair kerns only see the previous glyph."""
     from .setting import _edges
     pairs = {}
     for c, g in glyphs.items():
@@ -327,7 +331,7 @@ def build_all(out_dir, log=print):
         no_kern = (lambda a, b: a in FIGURES and b in FIGURES) if cells else (lambda a, b: False)
         classes, exceptions = kerning(glyphs, left, right, lsb, rsb, no_kern)
         space = WORD - 2 * half
-        sp = _space_pairs(glyphs, lsb, rsb, half, cells)
+        sp = _space_pairs(glyphs, lsb, rsb, half)
         names = {c: glyph_name(c) for c in glyphs}
         names[" "] = "space"
         fea = _fea(names, classes, left, right, {**sp, **exceptions})

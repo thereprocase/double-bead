@@ -15,11 +15,11 @@ sys.path.insert(0, str(ROOT))
 sys.stdout.reconfigure(encoding="utf-8")
 
 from beadjoint import glyphs as spec  # noqa: E402
-from beadjoint.charset import CHARS, full_m, full_mixed, full_p  # noqa: E402
+from beadjoint.charset import CHARS, full_m, full_mixed, full_p, glyph_name  # noqa: E402
 from beadjoint.geom import DOT, S, fillet, soft  # noqa: E402
-from beadjoint.glyphs import pieces  # noqa: E402
+from beadjoint.glyphs import FIGURES, pieces  # noqa: E402
 from beadjoint.readback import FontReader  # noqa: E402
-from beadjoint.setting import CELL_M, kerned, mixed, tabular  # noqa: E402
+from beadjoint.setting import CELL_F, CELL_M, kerned, mixed, tabular  # noqa: E402
 from beadjoint.verify import LINE_MIN, check_glyph, line_gaps  # noqa: E402
 
 FONTS = ROOT / "fonts"
@@ -156,6 +156,13 @@ class Setting(unittest.TestCase):
         steps = {round(b - a - (full_m()[line[i + 1][0]].minx - full_m()[line[i][0]].minx), 6) for i, (a, b) in enumerate(zip(xs, xs[1:]))}
         self.assertTrue(all(abs(s % 12) < 1e-6 or abs(s % 12 - 12) < 1e-6 for s in steps) or len(line) == 4)
 
+    def test_cells_clear_the_line_check(self):
+        # Centred in their cells, the two widest glyphs sit cell - width apart: the cells leave
+        # 2.00w (Mono) and 2.00w (Tab digits; 1.98w at the tuner's 7.02w budget), not GAPMIN.
+        self.assertGreaterEqual(CELL_M - max(g.width for g in full_m().values()), LINE_MIN)
+        self.assertGreaterEqual(CELL_F - max(full_mixed()[c].width for c in FIGURES), LINE_MIN)
+        self.assertGreaterEqual(CELL_F - 7.02, LINE_MIN - 1e-9)
+
 
 FAMILIES = (("Fillaprint-Regular.ttf", full_p), ("FillaprintTab-Regular.ttf", full_mixed),
             ("FillaprintMono-Regular.ttf", full_m))
@@ -195,6 +202,15 @@ class Fonts(unittest.TestCase):
         self.assertEqual(glyf[".notdef"].xMin + glyf[".notdef"].xMax, cell)
         drawn = [glyf[n] for n in font.getGlyphOrder() if glyf[n].numberOfContours > 0]
         self.assertGreaterEqual(cell + min(g.xMin for g in drawn) - max(g.xMax for g in drawn), LINE_MIN * UNITS)
+
+    def test_tab_figure_cells(self):
+        font = FontReader(FONTS / "FillaprintTab-Regular.ttf").font
+        cell = CELL_F * UNITS
+        names = [glyph_name(c) for c in FIGURES]
+        self.assertEqual({font["hmtx"][n][0] for n in names + ["uni2007"]}, {cell})
+        glyf = font["glyf"]
+        self.assertGreaterEqual(cell + min(glyf[n].xMin for n in names) - max(glyf[n].xMax for n in names),
+                                LINE_MIN * UNITS)
 
     def test_lsb_is_outline_xmin(self):
         """TrueType places an outline by its hmtx lsb (phantom point xMin - lsb), so the two must agree."""

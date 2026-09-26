@@ -173,11 +173,19 @@ Tabular "1" for the mixed setting (7w wide, fits the 9w figure cell):
 ```
 T      = 2.4     # optical target gap = stem-to-stem gap
 DEPTH  = 3.0     # scanline cap = T + DEPTH
-GAPMIN = 2.0     # hard true-distance floor (R9)
-WORD   = 5.5     # ink-to-ink word space
-CELL_M = 12      # monospace advance  (= width(m) 10 + GAPMIN)
-CELL_F = 9       # tabular figure advance (= 7 + GAPMIN)
+GAPMIN = 2.02    # hard true-distance floor: R9's 2.0 + 0.02 for outlines rounded to 1/50 w
+WORD   = 5.5     # word space, between word-space edges
+WORD_FLOOR = 3.5 # true distance from a word to the whole previous word
+CELL_M = 12      # monospace advance: ink ≤ width(m) = 10 leaves 2.00 between cells
+CELL_F = 9       # tabular figure advance: digits ≤ 7.02 leave 1.98 (7 today: 2.00)
 ```
+
+GAPMIN's 0.02 lets a TTF, whose outlines are rounded to 1/50 w, still pass the 1.98 line
+check (§11). The cells do not carry that margin: they leave 2.00 and 1.98, which meet the line
+check. The build checks every setting's lines as read back from each TTF.
+
+Word-space edges: halfway between a glyph's ink edge inside y ∈ [-4,10] and its bbox edge, so a
+descender overhang (j hook, ogonek) counts half and a cap-zone one fully.
 
 Optical pair offset (origin of B relative to origin of A):
 
@@ -196,7 +204,8 @@ Kerned setting (set P):
 
 ```
 x_B = x_A + off(A,B)
-after a space: place next ink edge WORD past the previous ink edge
+after a space: place the next glyph's left word-space edge WORD past the rightmost right
+               word-space edge of the previous word, then ≥ WORD_FLOOR from all of that word
 ```
 
 Tabular setting (set M):
@@ -211,7 +220,9 @@ Mixed setting (letters from P, figures from P with 1 → 1ₜ):
 ```
 figure run d0..dn:  cell_origin(k,d) = k*CELL_F + (CELL_F - bboxW(d))/2 - bbox_minx(d)
   run start after letter L:  run0 = x_L + off(L, d0) - cell_origin(0, d0)
-  run start after space/BOL: run0 = current edge
+  run start at line start:   run0 = 0
+  run start after a space:   as any glyph after a space: the edge of d0 (not of its cell)
+                             sits WORD past the previous word's edge
   figure k at run0 + cell_origin(k, dk)
 letter after figure d:       x = x_d + off(d, letter)
 ```
