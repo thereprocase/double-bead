@@ -9,11 +9,20 @@ python -m unittest discover -s tests
 python tools/public_showcase.py
 ```
 
+Some macOS/Linux installs only provide `python3` (no plain `python`); substitute it in
+every command in this file if `python --version` fails or resolves to Python 2.
+
 For reproducibility, build in a fresh virtual environment with the pinned versions
 and compare your output with the committed binaries:
 
 ```sh
-python -m venv .venv && . .venv/bin/activate
+python -m venv .venv
+# macOS / Linux:
+. .venv/bin/activate
+# Windows PowerShell (if this is blocked, run once: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned):
+# .venv\Scripts\Activate.ps1
+# Windows cmd.exe:
+# .venv\Scripts\activate.bat
 python -m pip install --only-binary=:all: -r requirements.txt
 python build.py && python -m unittest discover -s tests
 git status --short fonts/        # empty when your build matches the committed fonts
@@ -28,7 +37,8 @@ come from `BUILD_DATE` in `beadjoint/fontfile.py`, or from `SOURCE_DATE_EPOCH` w
 environment variable is set. Bump `BUILD_DATE` together with `VERSION` for each release.
 
 A clean Python 3.12.14/Linux rebuild of revision `d14b818` with the pinned
-dependencies passed the build and all 20 existing tests. Mono was byte-identical.
+dependencies passed the build and all 20 tests that existed at that revision (the
+suite has grown since). Mono was byte-identical.
 The proportional and Tab files had different GPOS packing (+116 bytes each),
 but their outline and metric tables and all 144,400 glyph-pair adjustments per
 font matched the committed files. Their GPOS bytes and resulting font checksum
@@ -50,16 +60,23 @@ sheets. Its final slicer panel additionally requires `site/dist/crops/`, generat
 from the companion demo workflow. The committed `showcase/6-sliced.png` is a
 toolpath visualization from that workflow, not a photograph or a new slicing run.
 
-## Browser specimen
+## Glyph tuner
 
 For contribution editing, run `python -m tuner.serve`. The localhost tuner edits
 source coordinates in memory, previews the real geometry, validates affected
 glyphs, and exports a Git patch. See [TUNER.md](TUNER.md) for its workflow and limits.
 
+## Browser specimen
+
 ```sh
 python site/build_site.py
 python site/serve.py
 ```
+
+`site/build_site.py` reads `review/LOG.md` and `review/notes.json` as live inputs;
+the rest of `review/` is frozen design history that may not run against the
+current package. `site/serve.py` binds to `127.0.0.1` by default; pass
+`--host 0.0.0.0` (and open the matching firewall rule) to also serve the LAN.
 
 The static site is written to `site/dist/` and served on port 8765. It includes a
 size calculator, glyph browser, and downloadable fonts with their license.
@@ -82,6 +99,7 @@ python demo/demo_plate.py                  # slice demo/slice with demo/profiles
 python demo/demo_check.py                  # score it; writes demo/check.json
 demo/tune.sh classic wall_generator=classic   # slice + score one override set
 demo/tune_all.sh                           # a batch of wall variants, then rank them
+demo/tune_all2.sh                          # follow-up: bead-width steps at angle=30, plus two angle comparisons
 ```
 
 `demo/slicer_support.py` holds the 3MF writing, OrcaSlicer lookup and gcode parsing.
@@ -99,13 +117,17 @@ exact profile behind the committed showcase; that setup is recorded in
 | `showcase/`, `specimen/` | Font specimens and explanatory images |
 | `site/` | Browser specimen and size calculator |
 | `demo/` | Coupon generation and slicer checks |
-| `review/` | Historical scripts and notes; superseded screenshots are in Git history |
+| `tests/` | Unit tests (`python -m unittest discover -s tests`) |
+| `tools/` | Showcase image generation and font installers |
+| `review/` | Historical scripts are frozen design history and may not run against the current package; `LOG.md` and `notes.json` are still read live by `site/build_site.py` |
 | `tuner/` | Local Gridline interface for source-coordinate contributions |
 
 The Python package retains the working name *Beadjoint*. The public family name
 is *Fillaprint*.
 
 ## Release versions
+
+See [RELEASING.md](RELEASING.md) for the packaging and publishing procedure.
 
 The first Fillaprint release is **v0.1.0 beta**, with OpenType version **0.100**.
 Use immutable tagged releases and versioned ZIPs; do not replace an existing release's binaries.

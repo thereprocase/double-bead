@@ -49,7 +49,10 @@ CELL = 5.0
 
 def read_layers(gcode, want):
     L = gcode.read_text(encoding="utf-8", errors="ignore").splitlines()
-    ex = next(i for i, l in enumerate(L) if l.startswith("; EXECUTABLE_BLOCK_START"))
+    try:
+        ex = next(i for i, l in enumerate(L) if l.startswith("; EXECUTABLE_BLOCK_START"))
+    except StopIteration:
+        raise SystemExit(f"{gcode}: no '; EXECUTABLE_BLOCK_START' marker (empty or truncated gcode)")
     out = {n: [] for n in want}
     walls = []
     layer, tool, feat, x, y, w = 0, "0", "", 0.0, 0.0, 0.34

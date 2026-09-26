@@ -212,14 +212,16 @@ def printed():
     rows = (len(tiles) + cols - 1) // cols
     im = Image.new("RGB", (cols * cw + (cols + 1) * pad, head + rows * (th + pad + 26) + pad), BODY)
     d = ImageDraw.Draw(im)
+    # This canvas isn't supersampled like canvas()/save() elsewhere in this file, so undo
+    # ui()'s SS multiply here to keep the same visual text size.
     d.text((pad, 20), "Sliced: Orca Arachne toolpaths at 0.32 mm, top face of the demo coupon "
            "(yellow = colour beads, grey = body beads, blue = design outline, white = no bead on this layer)", fill=(230, 232, 235),
-           font=ImageFont.truetype("segoeuib.ttf", 20))
+           font=ui(20 / SS, bold=True))
     for i, (c, t) in enumerate(zip(pick, tiles)):
         x = pad + (i % cols) * (cw + pad)
         y = head + (i // cols) * (th + pad + 26)
         im.paste(t, (x, y))
-        d.text((x, y + t.height + 4), f"{c}  U+{ord(c):04X}", fill=CAP, font=ImageFont.truetype("segoeui.ttf", 15))
+        d.text((x, y + t.height + 4), f"{c}  U+{ord(c):04X}", fill=CAP, font=ui(15 / SS))
     OUT.mkdir(exist_ok=True)
     im.save(OUT / "6-sliced.png", optimize=True)
     print("6-sliced.png", im.size)
