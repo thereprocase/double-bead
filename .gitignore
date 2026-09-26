@@ -14,3 +14,10 @@ site/dist/
 demo/layout*.json
 demo/check.json
 *.pkl
+# Historical review renders are disposable; keep published specimens in showcase/.
+review/**/*.png
+review/**/*.jpg
+review/**/*.jpeg
+review/**/*.webp
+review/**/*.gif
+.venv/
