@@ -480,6 +480,14 @@ class WorkerLogic(unittest.TestCase):
                          f"● (Proportional): it is {report['thickness']:g}w thick at its thickest; the fonts allow at most 4.85w.")
         self.assertTrue(checks(geom.D((0, 0), 2), bj, "• (Proportional)")["ok"], "the 4w bullet is within the limit")
 
+    def test_pieces_closer_than_the_line_gap_fail_on_their_own(self):
+        bj = Beadjoint()
+        report = checks(geom.D((0, 0), 1) | geom.D((3.5, 0), 1), bj, "x (Proportional)")     # two 2w dots, 1.5w apart
+        self.assertEqual((report["piece_gap"], report["fused"], report["ok"]), (1.5, False, False))
+        self.assertEqual(check_message("x (Proportional)", report, bj),
+                         "x (Proportional): separate pieces are only 1.5w apart (at least 1.98w).")
+        self.assertTrue(checks(geom.D((0, 0), 1) | geom.D((4, 0), 1), bj, "x (Proportional)")["ok"], "2w apart passes")
+
     def test_construction_errors_name_the_construction(self):
         message = build_error({slot("n", "Base", "S1 point 2 corner radius")["id"]: 8})
         self.assertEqual(message, "n (Base): the rounded corners at (1, 1) and (6, 1) together need 9w of a segment "
