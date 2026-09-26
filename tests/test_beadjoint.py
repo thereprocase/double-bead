@@ -35,6 +35,13 @@ class Geometry(unittest.TestCase):
         for x, y in pts:
             self.assertAlmostEqual(math.hypot(x - 1, y - 1), 1.0, places=9)
 
+    def test_fillet_straight_through_vertex(self):
+        # Off-axis collinear points: acos reads theta a hair below pi, u + v cancels to (0, 0).
+        for a, p, b in (((0, 0), (1, 1), (2, 2)), ((1, 10), (3.5, 5.5), (6, 1))):
+            self.assertEqual(fillet(a, p, b, 1), ([p], 0.0))
+        g = S((0, 0), (2, 2, 1), (4, 4))
+        self.assertAlmostEqual(g.area, 2 * math.hypot(4, 4), places=6)
+
     def test_straight_stroke_is_two_wide(self):
         r = check_glyph(soft(S((0, 0), (0, 10))))
         self.assertAlmostEqual(r["thickness"], 2.0, delta=0.03)

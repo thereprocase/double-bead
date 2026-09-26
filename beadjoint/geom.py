@@ -38,7 +38,11 @@ def fillet(a, p, b, r):
     ux, uy = _unit(a[0] - p[0], a[1] - p[1])
     vx, vy = _unit(b[0] - p[0], b[1] - p[1])
     theta = math.acos(max(-1.0, min(1.0, ux * vx + uy * vy)))
-    if r == 0 or theta > math.pi - 1e-9:
+    # A straight-through vertex has no corner to round. acos loses precision next to -1: a vertex
+    # on the line between its neighbours off the axes, e.g. (1, 1) between (0, 0) and (2, 2), reads
+    # theta = pi - 1.5e-8 while u + v cancels to (0, 0) and leaves no bisector. |u + v| = 2cos(theta/2)
+    # is the same test measured without that loss (the tuner can drag a corner onto that line).
+    if r == 0 or theta > math.pi - 1e-9 or math.hypot(ux + vx, uy + vy) < 1e-9:
         return [p], 0.0
     t = r / math.tan(theta / 2)
     bx, by = _unit(ux + vx, uy + vy)
