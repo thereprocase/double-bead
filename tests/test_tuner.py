@@ -307,6 +307,43 @@ class CatalogStructure(unittest.TestCase):
         self.assert_refused("beadjoint/marks.py", b'"breve":', b'"brevis":', "no preview character")
         self.assert_refused("beadjoint/geom.py", b"\nDOT = ", b"\nDOT_R = ", "DOT")
 
+    def changed(self, path, old, new):
+        """The catalog of the sources with one replacement in path."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            copy_sources(root)
+            source = (root / path).read_bytes()
+            self.assertIn(old, source)
+            (root / path).write_bytes(source.replace(old, new, 1))
+            return Catalog(root, families=False)
+
+    def test_reassignment_keeps_the_last_live_definition(self):
+        # Python keeps the last assignment. One that reads the earlier value keeps it live; one
+        # that does not leaves it dead, and its numbers would change nothing.
+        head = b"    head = D((1.7, -2.6), 1.4) | S((1.7, -2.6), (0.7, 0.4, B))"
+        original = target("’", "Shared punctuation")
+        kept = self.changed("beadjoint/latin.py", head, head + b"\n    head = head")
+        quote = [t for t in kept.targets if t["group"] == "Shared punctuation" and t["char"] == "’"]
+        self.assertEqual([(t["line"], len(t["slots"])) for t in quote], [(original["line"], len(original["slots"]))])
+        replaced = self.changed("beadjoint/latin.py", head, head + b"\n    head = D((1.7, -2.6), 1.2)")
+        quote = [t for t in replaced.targets if t["group"] == "Shared punctuation" and t["char"] == "’"]
+        self.assertEqual([(t["line"], [s["value"] for s in t["slots"]]) for t in quote],
+                         [(original["line"] + 1, [1.7, -2.6, 1.2])])
+        self.assertNotIn(original["slots"][0]["id"], replaced.slots)
+        n = b'    g["n"] = S((1, 10), (1, 1, 0), (6, 1), (6, 10))'
+        for extra, line in ((b'\n    g["n"] = S((1, 10), (6, 10))', 1), (b'\n    g["n"] = shift(g["n"], 0.5)', 0)):
+            with self.subTest(extra=extra):
+                c = self.changed("beadjoint/glyphs.py", n, n + extra)
+                lines = [t["line"] for t in c.targets if (t["group"], t["char"]) == ("Base", "n")]
+                self.assertEqual(lines, [target("n", "Base")["line"] + line])
+
+    def test_a_construction_defined_in_two_files_stops_the_tuner(self):
+        self.assert_refused("beadjoint/glyphs.py", b"def _raw_one_tabular():",
+                            b"def square_w():\n    return S((1, 0), (1, 9))\n\n\ndef _raw_one_tabular():",
+                            "square_w() is defined in both beadjoint/glyphs.py and beadjoint/latin.py")
+        self.assert_refused("beadjoint/marks.py", b"\nABOVE_LOW, ", b"\nDOT = 2\nABOVE_LOW, ",
+                            "DOT is defined in both beadjoint/marks.py and beadjoint/geom.py")
+
     def test_constructions_without_literal_numbers_stop_the_tuner(self):
         self.assert_refused("beadjoint/latin.py", b"def square_w():", b"def square_w():\n    return None\n\n\ndef _w():",
                             "square_w()")

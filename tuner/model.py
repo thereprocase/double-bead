@@ -122,6 +122,27 @@ def source_commit(root, paths):
     return commit if COMMIT.fullmatch(commit) else None
 
 
+def _reads(node, name, char=None):
+    """Whether expression node reads the variable name, or name[char] when char is given."""
+    for n in ast.walk(node):
+        if char is None and isinstance(n, ast.Name) and n.id == name and isinstance(n.ctx, ast.Load):
+            return True
+        if (char is not None and isinstance(n, ast.Subscript) and isinstance(n.ctx, ast.Load)
+                and isinstance(n.value, ast.Name) and n.value.id == name
+                and isinstance(n.slice, ast.Constant) and n.slice.value == char):
+            return True
+    return False
+
+
+def _label(key):
+    """A construction key as the sources spell it: "capitals()", "head in symbols()", "DOT"."""
+    if isinstance(key, str):
+        return key if key in ("DOT", "SHAPES") else f"{key}()"
+    if key[0] == "SHAPES":
+        return f"marks.SHAPES[{key[1]!r}]"
+    return f"{key[1]} in {key[0]}()"
+
+
 def _session_commit(session):
     commit = session.get("commit") if isinstance(session, dict) else None
     return commit[:12] if isinstance(commit, str) and COMMIT.fullmatch(commit) else None
@@ -154,8 +175,9 @@ class Catalog:
         self.targets = []
         self.superseded = []
         self.derived = None
-        self._found = {}        # construction name -> source path
-        self._produced = set()  # construction names that yielded at least one target
+        self._found = {}        # construction key -> (source path, scope) where it is defined
+        self._keys = {}         # target id -> construction key, for the startup check
+        self._live = {}         # (scope, assigned name) -> target ids its live assignments made
         self._origin = {}       # target id -> FUNCTIONS name, for whole-glyph constructions
         self._titles = {}       # target id -> how messages name it
         self._spans = []        # (path, first line, last line, target)
@@ -167,28 +189,61 @@ class Catalog:
                 elif isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
                     name = node.targets[0].id
                     if name == "SHAPES" and isinstance(node.value, ast.Dict):
-                        self._found_at("SHAPES", path)
-                        self._accents(path, node.value)
+                        self._found_at("SHAPES", path, path)
+                        made = self._accents(path, node.value)
+                        self._assign(path, "SHAPES", _reads(node.value, "SHAPES"), made)
                     elif name == "DOT":
-                        self._found_at("DOT", path)
-                        self._target(path, node, ".", Construction("Global dot radius", handles=False), [node.value],
-                                     key="DOT", title="The dot radius", scalar=True)
+                        self._found_at("DOT", path, path)
+                        made = [self._target(path, node, ".", Construction("Global dot radius", handles=False),
+                                             [node.value], key="DOT", title="The dot radius", scalar=True)]
+                        self._assign(path, "DOT", _reads(node.value, "DOT"), made)
         self._check_found()
         if families:
             self._check_families()
 
-    def _found_at(self, name, path):
-        if name in self._found:
-            raise TunerError(f"{name} is defined in both {self._found[name]} and {path}; tuner/model.py cannot tell "
-                             "which one the fonts use.", "sources")
-        self._found[name] = path
+    def _found_at(self, key, path, scope):
+        """Record where a listed construction is defined. Found again in the same scope (a module,
+        a function body, one dict literal) it was reassigned, which _assign resolves; anywhere
+        else nothing says which definition the fonts use."""
+        seen = self._found.get(key)
+        if seen and seen[1] != scope:
+            raise TunerError(f"{_label(key)} is defined in both {seen[0]} and {path}; tuner/model.py cannot tell "
+                             "which one the fonts use. Remove or rename one of them.", "sources")
+        self._found[key] = (path, scope)
+
+    def _assign(self, scope, name, reads_previous, made):
+        """Record that an assignment to name in scope made the targets made.
+
+        Python keeps the last assignment, so an earlier one to the same name is dead code unless
+        the new value reads it (head = shift(head, 1)); editing a dead one would change nothing,
+        so its targets are dropped.
+        """
+        previous = self._live.get((scope, name), [])
+        if not reads_previous:
+            self._remove(previous)
+            previous = []
+        self._live[scope, name] = previous + [ident for ident in made if ident]
+
+    def _remove(self, ids):
+        ids = set(ids)
+        if not ids:
+            return
+        self.targets = [t for t in self.targets if t["id"] not in ids]
+        self._spans = [s for s in self._spans if s[3]["id"] not in ids]
+        for sid in [sid for sid, t in self._owner.items() if t["id"] in ids]:
+            del self.slots[sid], self._owner[sid]
+        for ident in ids:
+            for table in (self._keys, self._origin, self._titles):
+                table.pop(ident, None)
 
     def _function(self, path, fn):
-        self._found_at(fn.name, path)
+        self._found_at(fn.name, path, path)
         construction = FUNCTIONS[fn.name]
         if construction.char:
-            self._target(path, fn, construction.char, construction, fn.body, key=fn.name, origin=fn.name)
+            made = [self._target(path, fn, construction.char, construction, fn.body, key=fn.name, origin=fn.name)]
+            self._assign(path, fn.name + "()", False, made)
             return
+        scope, made = (path, fn.name), []
         for stmt in fn.body:
             if not isinstance(stmt, ast.Assign) or len(stmt.targets) != 1:
                 continue
@@ -196,21 +251,31 @@ class Catalog:
             if isinstance(target, ast.Subscript) and isinstance(target.slice, ast.Constant):
                 char = target.slice.value
                 if isinstance(char, str) and len(char) == 1:
-                    self._target(path, stmt, char, construction, [stmt.value], key=fn.name, origin=fn.name)
+                    var = target.value.id if isinstance(target.value, ast.Name) else None
+                    ids = [self._target(path, stmt, char, construction, [stmt.value], key=fn.name, origin=fn.name)]
+                    self._assign(scope, (var, char), var is not None and _reads(stmt.value, var, char), ids)
+                    made += ids
             elif isinstance(target, ast.Name) and (fn.name, target.id) in SHARED:
                 key = (fn.name, target.id)
-                self._found_at(key, path)
-                self._target(path, stmt, SHARED[key].char, SHARED[key], [stmt.value], key=key)
+                self._found_at(key, path, scope)
+                ids = [self._target(path, stmt, SHARED[key].char, SHARED[key], [stmt.value], key=key)]
+                self._assign(scope, target.id, _reads(stmt.value, target.id), ids)
+                made += ids
+        self._assign(path, fn.name + "()", False, made)       # a second def in the module replaces this one
 
     def _accents(self, path, shapes):
+        scope, made = (path, "SHAPES"), []
         for key, value in zip(shapes.keys, shapes.values):
             name = key.value if isinstance(key, ast.Constant) else None
             if name not in ACCENTS:
                 raise TunerError(f"marks.SHAPES has a mark {name!r} that the tuner has no preview character for. "
                                  "Add it to ACCENTS in tuner/model.py.", "sources")
-            self._found_at(("SHAPES", name), path)
-            self._target(path, value, ACCENTS[name], Construction("Accent " + name, handles=False), [value],
-                         key=("SHAPES", name), title=f"The {name} accent")
+            self._found_at(("SHAPES", name), path, scope)
+            ids = [self._target(path, value, ACCENTS[name], Construction("Accent " + name, handles=False), [value],
+                                key=("SHAPES", name), title=f"The {name} accent")]
+            self._assign(scope, name, False, ids)              # a repeated key in a dict literal: the last wins
+            made += ids
+        return made
 
     def _check_found(self):
         """Refuse to start when a listed construction is missing or yields nothing to edit.
@@ -228,7 +293,8 @@ class Catalog:
         if missing:
             raise TunerError("tuner/model.py lists constructions that are not in the sources: " + ", ".join(missing)
                              + ". Update FUNCTIONS, SHARED or ACCENTS in tuner/model.py to match.", "sources")
-        empty = [label for key, label in wanted if key not in self._produced]
+        produced = set(self._keys.values())
+        empty = [label for key, label in wanted if key not in produced]
         if empty:
             raise TunerError("These constructions have no literal numbers the tuner can edit: " + ", ".join(empty)
                              + ". Write their coordinates as numbers, or update tuner/model.py.", "sources")
@@ -246,7 +312,7 @@ class Catalog:
 
         def output(name):
             if name not in outputs:
-                module = importlib.import_module(self._found[name][:-3].replace("/", "."))
+                module = importlib.import_module(self._found[name][0][:-3].replace("/", "."))
                 outputs[name] = getattr(module, name)(*(output(a) for a in FUNCTIONS[name].args))
             return outputs[name]
 
@@ -264,10 +330,7 @@ class Catalog:
             if built is None or not (same(used, built) or construction.softened and same(used, geom.soft(built))):
                 dropped.add(target["id"])
         self.superseded = [(t["group"], t["char"]) for t in self.targets if t["id"] in dropped]
-        self.targets = [t for t in self.targets if t["id"] not in dropped]
-        self._spans = [s for s in self._spans if s[3]["id"] not in dropped]
-        for sid in [sid for sid, t in self._owner.items() if t["id"] in dropped]:
-            del self.slots[sid], self._owner[sid]
+        self._remove(dropped)
         self.derived = {}
         for ch in charset.CHARS:
             parts = marks.decompose(ch) if ch not in raw["P"] else None
@@ -347,11 +410,13 @@ class Catalog:
             if not construction.handles:
                 target["handles"] = []
             self.targets.append(target)
-            self._produced.add(key)
+            self._keys[ident] = key
             self._titles[ident] = title or f"{char} ({construction.group})"
             self._spans.append((path, node.lineno, node.end_lineno, target))
             if origin:
                 self._origin[ident] = origin
+            return ident
+        return None
 
     def title(self, target):
         """How a message names a construction at the start of a sentence: "n (Base)", "The breve accent"."""
