@@ -297,7 +297,10 @@ def specials(p, cap, sym):
     x["ƒ"] = S((7, -3, B), (4.5, -3, 2), (2.5, 13, 2), (0, 13, B)) | S((1.5, 1), (6.5, 1))         # r12: slanted stem
     # r12: capital sharp s: sharp top right, diagonal to a rounded U-turn at mid height, tail ball 2 w off the stem
     x["ẞ"] = S((1, 10), (1, -3, 2), (7.5, -3, 0.5), (3.8, 2.5, 1.3), (8, 2.5, 1.5), (8, 9, 2), (5, 9, B))
-    x["ĳ"] = p["i"] | shift(p["j"], 1)
+    # The 3w dots (R11) set the spacing: i's spans x 0..3 and j's 2.5..5.5, so j moves 2.5 for a 2w gap
+    # between them (the stems end up 3w apart), as close as typed "ij" (2.52). At 1 the dots overlapped and
+    # the stems stood 1.5w apart, and finishing filled both into one 5.5w slab.
+    x["ĳ"] = p["i"] | shift(p["j"], 2.5)
     x["Ĳ"] = cap["I"] | shift(cap["J"], 8)
     x["ª"] = shift(p["a"], 0, -4)
     x["º"] = shift(p["o"], 0, -4)
