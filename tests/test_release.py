@@ -14,12 +14,15 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(ROOT / "tests"))
 
 from beadjoint.release import BUILD_DATE, RELEASE, VERSION, ZIP_STEM  # noqa: E402
+from fillaprint_env import compares_fonts_with_sources  # noqa: E402
 from fontTools.ttLib import TTFont  # noqa: E402
 import package_release  # noqa: E402
 
@@ -31,6 +34,7 @@ CHANGELOG_HEADING = re.compile(r"^## (?:.*— )?v(?P<release>[0-9][0-9.]* beta) 
 class FontVersions(unittest.TestCase):
     """Every committed TTF must carry the current VERSION in its name table."""
 
+    @compares_fonts_with_sources          # VERSION
     def test_name_id_5(self):
         for name in FONT_FILES:
             font = TTFont(str(ROOT / "fonts" / name))
@@ -102,6 +106,18 @@ class PackageRelease(unittest.TestCase):
             self.assertEqual(path_a.read_bytes(), path_b.read_bytes())
             self.assertEqual(digest_a, hashlib.sha256(path_a.read_bytes()).hexdigest())
 
+    def test_crlf_checkout_packages_the_committed_license(self):
+        # Git for Windows' default core.autocrlf=true checks OFL.txt out with CRLF line endings.
+        committed = (ROOT / "OFL.txt").read_bytes().replace(b"\r\n", b"\n")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "fonts").mkdir()
+            for name in FONT_FILES:
+                (root / "fonts" / name).write_bytes((ROOT / "fonts" / name).read_bytes())
+            (root / "OFL.txt").write_bytes(committed.replace(b"\n", b"\r\n"))
+            with mock.patch.object(package_release, "ROOT", root):
+                self.assertEqual(package_release.members()["OFL.txt"], committed)
+
     def test_member_list_and_storage(self):
         with tempfile.TemporaryDirectory() as out:
             path, _ = package_release.build(out)
@@ -123,8 +139,10 @@ class PackageRelease(unittest.TestCase):
         with tempfile.TemporaryDirectory() as out:
             result = subprocess.run(
                 [sys.executable, str(ROOT / "tools" / "package_release.py"), "--out", out],
-                capture_output=True, text=True, check=True, cwd=str(ROOT))
-            self.assertRegex(result.stdout.strip(), r"^\S+\.zip [0-9a-f]{64}$")
+                capture_output=True, encoding="utf-8", check=True, cwd=str(ROOT), timeout=120)
+            path, digest = result.stdout.strip().rsplit(" ", 1)     # the path may contain spaces
+            self.assertEqual(Path(path), Path(out) / f"{ZIP_STEM}.zip")
+            self.assertEqual(digest, hashlib.sha256(Path(path).read_bytes()).hexdigest())
 
     def test_zip_stem_matches_release(self):
         self.assertEqual(ZIP_STEM, "Fillaprint-" + RELEASE.replace(" ", "-"))

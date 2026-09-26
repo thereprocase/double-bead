@@ -159,7 +159,7 @@ def main():
                    mixed('1-1/8" - 1-13/32" dep.')], res=20, path=spec / "thickness.png")
 
     report["failures"] = failures
-    (HERE / "report.json").write_text(json.dumps(report, indent=1, default=str))
+    (HERE / "report.json").write_text(json.dumps(report, indent=1, default=str), encoding="utf-8", newline="\n")
     for name, s in report["spec_sets"].items():
         print(_spec_line(name, s))
     for family, f in report["fonts"].items():
@@ -176,4 +176,5 @@ def main():
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")     # failures name glyphs the Windows code page lacks (ĳ)
     sys.exit(main())

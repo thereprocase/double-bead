@@ -31,6 +31,14 @@ instead, where the activation command is `.venv\Scripts\activate.bat`.
 
 Open **http://127.0.0.1:8766** if the browser does not open automatically. Use
 `--port 8767` to choose another port or `--no-browser` to suppress opening a tab.
+On Windows the tuner reserves its port for itself, so no other program can take
+it over. Started again soon after it stopped, it can find the port still in
+use until Windows has finished with the old connections to it; wait a moment
+(possibly a couple of minutes) or choose another port. If Windows refuses a
+port outright, the port may lie in a range the system reserves (Hyper-V, WSL
+and Docker reserve whole ranges), so the next port is likely refused too:
+`netsh int ipv4 show excludedportrange protocol=tcp` lists the ranges, and any
+port outside them will do.
 The server binds only to the local loopback interface. There are no accounts,
 remote services, JavaScript packages, or additional Python dependencies. Bundled
 IBM Plex fonts keep the Gridline interface available offline.
@@ -221,9 +229,21 @@ and the tuner starts without edits.
 
 Contributor pull requests are source-only. `python build.py` and the tests must
 pass, but the fonts, specimen images, and `report.json` they rewrite differ from
-machine to machine; maintainers rebuild them once per release in the pinned
-environment. `git restore fonts specimen report.json` discards those outputs, and
+machine to machine; maintainers rebuild them in the pinned environment on Linux
+when the change lands on `main`. `git restore fonts specimen report.json` discards those outputs, and
 `git status --short` should then list only files under `beadjoint/`.
+
+CI checks a pull request's sources, not its committed fonts: its Linux build job
+builds fonts from your sources and runs the build's checks and the font tests on
+them, and notes that the committed fonts are older. The test matrix on Linux,
+macOS and Windows skips only the seven tests that compare the committed fonts
+with the sources or with constants taken from them
+(`test_outlines_follow_source`, `test_mono_lines_follow_setting`,
+`test_mono_fixed_pitch`, `test_tab_figure_cells`, `test_ink_band_in_fonts`,
+`test_fonts_carry_license` and `test_name_id_5`) and runs everything else. If
+your pull request does change `fonts/`, the fonts must match a Linux build of
+its sources. Maintainers rebuild the fonts before the change lands on `main` (see
+[DEVELOPMENT.md](DEVELOPMENT.md#continuous-integration)).
 
 Open a pull request with the source diff, why the glyph is better, affected
 families, and before/after evidence. Use the
@@ -262,7 +282,10 @@ removing strokes, changing endpoint types, new character
 coverage, and changing construction topology still require editing Python. It
 does not generate new TTFs or run OrcaSlicer in the browser. The preview uses
 source geometry; it is not a screenshot of an installed font or a simulated
-print guarantee.
+print guarantee. It is computed on your machine: on macOS and Windows a few
+glyphs finish slightly differently from the Linux-built release (Mono 6, 8, e
+and z with their accents, by up to 0.21w; see
+[DEVELOPMENT.md](DEVELOPMENT.md#platforms)).
 
 The local server accepts only bounded, finite numeric substitutions at cataloged
 AST locations. It does not accept Python expressions or arbitrary file paths.

@@ -105,7 +105,8 @@ def source_commit(root, paths):
     at all) would send people to the wrong place.
     """
     def git(*args):
-        return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, timeout=10)
+        # Git prints paths as UTF-8 on every platform, not in the Windows code page.
+        return subprocess.run(["git", *args], cwd=root, capture_output=True, encoding="utf-8", errors="replace", timeout=10)
 
     try:
         top = git("rev-parse", "--show-toplevel")

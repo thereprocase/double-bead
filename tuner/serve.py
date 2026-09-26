@@ -10,6 +10,7 @@ import re
 import secrets
 import shutil
 import signal
+import socket
 import stat
 import subprocess
 import sys
@@ -53,6 +54,17 @@ CACHE_PID = re.compile(re.escape(CACHE_PREFIX) + r"(\d+)-")
 
 class TunerServer(ThreadingHTTPServer):
     daemon_threads = True
+    # Windows (the platform with SO_EXCLUSIVEADDRUSE) gives SO_REUSEADDR another meaning: a socket may
+    # bind a port that another socket is already listening on. With it set, another program could take
+    # over the tuner's port, and a busy port fails with WSAEACCES rather than WSAEADDRINUSE, which
+    # bind_error would report as a forbidden port. The tuner reserves its port there instead. Elsewhere
+    # SO_REUSEADDR only lets a restarted tuner bind while its old connections wind down.
+    allow_reuse_address = not hasattr(socket, "SO_EXCLUSIVEADDRUSE")
+
+    def server_bind(self):
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
 
     def __init__(self, port, root=ROOT, max_connections=MAX_CONNECTIONS):
         self.catalog = Catalog(root)
@@ -122,8 +134,10 @@ class TunerServer(ThreadingHTTPServer):
     def run_worker(self, key):
         """(HTTP status, response) for one geometry computation in a fresh process."""
         try:
+            # errors="replace": the reply is ASCII JSON, and a stray byte on stderr (a library writing in
+            # the Windows code page) must not cost the preview.
             process = subprocess.run([sys.executable, "-m", "tuner.worker"], input=key, capture_output=True,
-                                     text=True, encoding="utf-8", cwd=self.catalog.root, timeout=WORKER_TIMEOUT,
+                                     encoding="utf-8", errors="replace", cwd=self.catalog.root, timeout=WORKER_TIMEOUT,
                                      env=self.worker_env)
         except subprocess.TimeoutExpired:
             return 504, {"error": f"The preview took longer than {WORKER_TIMEOUT // 60} minutes and was stopped. "
@@ -270,7 +284,8 @@ class Handler(BaseHTTPRequestHandler):
 def remove_stale_caches(directory=None, now=None):
     """Remove glyph caches that tuner servers left in the temporary directory (a server that was
     killed cannot clean up): this user's own real directories, untouched for a day, whose server
-    is not running. Returns the names removed."""
+    is not running. Windows cannot tell whether that server runs, so there the day alone decides.
+    Returns the names removed."""
     directory = directory or tempfile.gettempdir()
     now = time.time() if now is None else now
     uid = os.getuid() if hasattr(os, "getuid") else None     # Windows: the temporary directory is per user
@@ -317,11 +332,19 @@ def _stop(signum, frame):
     raise _Stop
 
 
-def bind_error(exc, port):
+def bind_error(exc, port, windows=os.name == "nt"):
     """One line explaining why the server cannot listen on port."""
     other = port + 1 if 1024 <= port < 65535 else 8767
     if getattr(exc, "errno", None) in IN_USE:
         return f"Cannot start the tuner: port {port} is already in use. Choose another: python -m tuner.serve --port {other}"
+    if getattr(exc, "errno", None) in DENIED and windows:
+        # Windows has no privileged ports. It refuses a port another program holds exclusively, or one in
+        # a range the system reserves. Hyper-V, WSL and Docker reserve whole ranges, so the next port is
+        # likely refused too: name the command that lists them instead of suggesting one.
+        return (f"Cannot start the tuner: Windows does not allow listening on port {port}; another program holds it "
+                "or it lies in a range the system reserves. List the reserved ranges with "
+                "netsh int ipv4 show excludedportrange protocol=tcp and choose a port outside them: "
+                "python -m tuner.serve --port PORT")
     if getattr(exc, "errno", None) in DENIED:
         return (f"Cannot start the tuner: this system does not allow listening on port {port}. Choose a port from "
                 "1024 to 65535: python -m tuner.serve --port 8767")

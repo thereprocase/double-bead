@@ -28,6 +28,10 @@ python build.py && python -m unittest discover -s tests
 git status --short fonts/        # empty when your build matches the committed fonts
 ```
 
+Linux builds with glibc 2.39 and 2.44 (x86-64) matched the committed fonts byte for byte;
+macOS and Windows builds do not, because a few glyphs finish differently there (see
+[Platforms](#platforms)).
+
 The TTFs depend on the fontTools version as well as the glyph sources: the same sources
 built with a different fontTools give different bytes. Keep `requirements.txt` pinned and
 rebuild the fonts in the same commit whenever the pins or the sources change.
@@ -61,6 +65,104 @@ The older `tools/showcase.py` produces the full glyph, language, symbol, and fam
 sheets. Its final slicer panel additionally requires `site/dist/crops/`, generated
 from the companion demo workflow. The committed `showcase/6-sliced.png` is a
 toolpath visualization from that workflow, not a photograph or a new slicing run.
+
+## Platforms
+
+Releases are built on Linux x86-64, where CI rebuilds the committed fonts byte for byte. The
+glyph geometry was found identical on Linux with glibc 2.39 (x86-64 and aarch64, in CI) and
+glibc 2.44 (x86-64); other glibc versions, architectures and CPUs are unverified. The tests
+treat every Linux with glibc as the reference, so one whose geometry differs fails the exact
+checks instead of quietly taking looser ones. CI's Linux jobs run on the `ubuntu-24.04` image
+(glibc 2.39) rather than `ubuntu-latest`, so the reference does not move to a new glibc
+unannounced; change the image in a commit of its own and check that its build still matches
+the committed fonts.
+
+macOS and Windows differ, with the same pinned packages (shapely 2.1.2 with GEOS 3.13.1,
+numpy 2.5.3, scipy 1.18.1). Their C math libraries round `sin`, `cos`, `tan`, `acos` and
+`atan2` differently from glibc in the last one to three bits for some arguments. Those
+functions place the vertices of the fillet arcs (`geom.fillet`, through Python's `math`) and
+of GEOS's round buffers, so most glyph coordinates differ in their last bits. Mostly that is
+harmless, but where arcs meet at a mitre join, or edges touch or nearly touch, those bits
+can move a peak, decide whether a hairline sliver joins two pockets of negative space, or
+open a crack, and finishing (`geom.finish`) decides by area which pockets to fill. CI measured
+on macOS 26.6 (arm64), macOS 15.7 (Intel) and Windows Server 2025 (10.0.26100):
+
+| Platform | Glyphs | Difference from the release |
+| --- | --- | --- |
+| Windows | Mono 6, 8, e ę ĕ ě ē é è ė ê ë | outline 0.205 to 0.213 w off; in 6, two 0.054 w² corner pockets join into one 0.108 w² pocket, over the 0.1 w² fill threshold |
+| Windows | Å, Ů | the ring's top 8.3e-5 w higher, where two of its fillet arcs meet; this is already in the composed glyph, before finishing |
+| macOS, Apple silicon and Intel | Mono z ź ż ž | outline 0.045 to 0.048 w off: a 0.103 w² sliver along the diagonal is filled |
+
+Every other glyph stays within the 0.03 w build tolerance of the release, and Python 3.12
+and 3.14 give identical results on each platform. On the reference the tests compare the
+committed fonts with the local geometry at 0.03 w and allow ink 1e-6 w past the line-spacing
+band. Elsewhere they use the slack measured on these images, with headroom:
+
+| Platform | Outline distance | Glyphs per family beyond 0.03 w | Band |
+| --- | --- | --- | --- |
+| macOS | 0.06 w (measured 0.048) | 8 (measured 4) | 1e-6 w (measured 0) |
+| Windows | 0.25 w (measured 0.213) | 24 (measured 12) | 2.5e-4 w (measured 8.3e-5) |
+| any other platform | 0.03 w | 0 | 1e-6 w |
+
+The glyph count keeps a change to many glyphs failing there: making the dots 2 % larger
+(`DOT` 1.5 to 1.53) moves 40 or 41 glyphs per family by up to 0.126 w. Fonts built on macOS or
+Windows differ from the release in the glyphs above, so build releases on Linux. The glyph
+tuner's previews show the local geometry and differ from the release in the same way.
+
+## Continuous integration
+
+`.github/workflows/test.yml` runs on every push to `main` and every pull request:
+
+- **test**: the whole suite on Linux, macOS and Windows with Python 3.12 and 3.14, against
+  the committed fonts, with the tolerances described under [Platforms](#platforms).
+- **build fonts from sources**: on Linux with Python 3.12, `python build.py` builds the fonts
+  from the checked-out sources and runs its own geometry and read-back checks; then
+  `tests/test_beadjoint.py` and `tests/test_release.py` run against the fonts it just built,
+  at the exact tolerances and with nothing skipped; finally the committed `fonts/` is compared
+  with that build.
+
+The jobs run on pinned images rather than the `-latest` labels, which move without a commit
+here: `ubuntu-24.04` (glibc 2.39, the reference), and `macos-26` (arm64) and `windows-2025`,
+the images the macOS and Windows slack was measured on. A newer image can round differently,
+so move to one in a commit of its own, and on Linux check that the build still matches the
+committed fonts. The Linux jobs set `FILLAPRINT_REQUIRE_REFERENCE=1`, and a test fails if that
+image is not the reference platform, rather than letting it take another platform's slack.
+
+**On `main`** no committed-font test is skipped (the Windows jobs still skip the one test that
+needs POSIX signals), and the build job fails unless the committed fonts match the build byte
+for byte.
+
+**On pull requests**, which are source-only ([TUNER.md](TUNER.md#contribute)), the committed
+fonts may predate the sources. The workflow sets `FILLAPRINT_COMMITTED_FONTS_MAY_BE_STALE=1`
+in the test matrix, which skips exactly the seven tests that compare the committed fonts with
+the sources or with constants taken from them:
+
+| Test | Compares the committed fonts with |
+| --- | --- |
+| `test_beadjoint.Fonts.test_outlines_follow_source` | the finished glyph geometry |
+| `test_beadjoint.Fonts.test_mono_lines_follow_setting` | the setting engine's Mono lines |
+| `test_beadjoint.Fonts.test_mono_fixed_pitch` | `CELL_M` and `LINE_MIN` |
+| `test_beadjoint.Fonts.test_tab_figure_cells` | `CELL_F` and `LINE_MIN` |
+| `test_beadjoint.LineSpacing.test_ink_band_in_fonts` | the band and its comma-below letters |
+| `test_beadjoint.Licensing.test_fonts_carry_license` | `beadjoint/licensing.py` and `OFL.txt` |
+| `test_release.FontVersions.test_name_id_5` | `VERSION` in `beadjoint/release.py` |
+
+The log names each skip and its reason, and every other test runs as on `main`. A test fails
+if the variable is set in a GitHub run that is not a pull request. The build job runs all
+seven on the fonts built from the pull request's sources. If the committed fonts differ from
+that build and the pull request leaves `fonts/` as it is on the base branch, the job posts a
+notice and a job summary and passes. If the pull request changes `fonts/` and they still
+differ from the build, it fails: the fonts were rebuilt wrongly (for example on macOS or
+Windows, or with a different environment). Locally the variable is unset and nothing skips.
+
+A source-only pull request lands on `main` in one of two ways, and either way `main` gets
+the sources and the matching fonts in the same push:
+
+- rebuild on the pull request's branch before merging: `python build.py` on Linux in the
+  pinned environment ([RELEASING.md](RELEASING.md) step 3), then commit `fonts/`, the specimen
+  images and `report.json`; the build job then requires the fonts to match;
+- or merge locally, rebuild the same way, commit, and push the merge and the rebuild
+  together.
 
 ## Glyph tuner
 

@@ -5,9 +5,13 @@
 Covers the geometry primitives, the construction entry points, the spec's reference results, the hard
 rules on every glyph of every set, the setting engine's line check, the line-spacing band, and the
 built TTFs (outlines, metrics, set lines and license metadata read back). The TTF tests read the
-committed fonts: rebuild them (python build.py) after changing the sources.
+committed fonts: rebuild them (python build.py) after changing the sources. Two comparisons are exact only
+on the platform the release geometry comes from (fillaprint_env.REFERENCE), and the tests that compare the
+committed fonts with the sources skip where CI says the fonts may be older (fillaprint_env.STALE_FONTS_OK).
 """
 import math
+import os
+import platform
 import re
 import sys
 import unittest
@@ -15,8 +19,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "tests"))
 sys.stdout.reconfigure(encoding="utf-8")
 
+from fillaprint_env import REFERENCE, REQUIRE_REFERENCE, STALE_FONTS_OK, compares_fonts_with_sources  # noqa: E402
 from shapely import affinity  # noqa: E402
 
 from beadjoint import charset  # noqa: E402
@@ -33,6 +39,19 @@ FONTS = ROOT / "fonts"
 UNITS = 50
 OUTLINE_TOL = 1.5 / UNITS      # build.py: vertex rounding, simplification, centroid alignment
 GAP_TOL = 0.1 + 0.03           # build.py: the spec's 0.1w kern drop plus rounding
+# macOS and Windows round sin, cos, tan, acos and atan2 differently from glibc in the last bits, and a few
+# glyphs finish differently there (docs/DEVELOPMENT.md, "Platforms"). Slack measured on CI's images, with
+# headroom; a platform not listed gets the reference tolerances.
+#   outlines: (largest distance from the release outline, glyphs per family allowed beyond OUTLINE_TOL).
+#     Measured: macOS 0.048w, 4 glyphs (Mono z ź ż ž); Windows 0.213w, 12 glyphs (Mono 6 8 e and its
+#     accents); every other glyph within OUTLINE_TOL. Headroom about 1.2x on the distance and 2x on the
+#     count, so a change to many glyphs still fails (DOT 1.5 -> 1.53: 40 or 41 glyphs per family, up to 0.126w).
+#   band: how far ink may cross the line-spacing band. Measured: Windows 8.3e-5w (Å and Ů: the ring's
+#     peak where two fillet arcs meet), macOS 0. Headroom 3x.
+PLATFORM_OUTLINE = {"darwin": (0.06, 8), "win32": (0.25, 24)}
+PLATFORM_BAND = {"win32": 2.5e-4}
+OUTLINE_LIMITS = (OUTLINE_TOL, 0) if REFERENCE else PLATFORM_OUTLINE.get(sys.platform, (OUTLINE_TOL, 0))
+BAND_SLACK = 1e-6 if REFERENCE else PLATFORM_BAND.get(sys.platform, 1e-6)
 
 
 LINES = ["The quick brown fox jumps over the lazy dog.", "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG",
@@ -273,15 +292,17 @@ class LineSpacing(unittest.TestCase):
 
     def test_ink_band(self):
         self.assertEqual(self.BAND[1] - self.BAND[0], self.PITCH - 2)
+        slack = BAND_SLACK                                      # Å and Ů reach the band's top exactly
         lowest, highest = -99.0, 99.0
         for name, glyphs in (("P", full_p()), ("T", full_mixed()), ("M", full_m())):
-            outside = {c for c, g in glyphs.items() if g.bounds[1] < self.BAND[0] - 1e-6 or g.bounds[3] > self.BAND[1] + 1e-6}
+            outside = {c for c, g in glyphs.items() if g.bounds[1] < self.BAND[0] - slack or g.bounds[3] > self.BAND[1] + slack}
             self.assertEqual(outside, set(self.COMMA_BELOW), name)
             lowest = max(lowest, max(g.bounds[3] for g in glyphs.values()))
             highest = min(highest, min(g.bounds[1] for g in glyphs.values()))
         # comma below over ring (ș over Å): the pitch at which the closest approach is 2w again
         self.assertAlmostEqual(lowest + 2 - highest, self.CLEAR_PITCH, delta=0.005)
 
+    @compares_fonts_with_sources          # a glyph edit that moves ink across the band changes COMMA_BELOW
     def test_ink_band_in_fonts(self):
         top, bottom = (10 - self.BAND[0]) * UNITS, (10 - self.BAND[1]) * UNITS
         for name in ("Fillaprint-Regular.ttf", "FillaprintTab-Regular.ttf", "FillaprintMono-Regular.ttf"):
@@ -321,8 +342,11 @@ class Fonts(unittest.TestCase):
                 low = [(a, b, round(d, 3)) for a, b, d in gaps if d < 1.98]
                 self.assertFalse(low, f"{name}: {text!r}")
 
+    @compares_fonts_with_sources
     def test_outlines_follow_source(self):
-        # build.py's tolerance, on every glyph of every family
+        # build.py's tolerance, on every glyph of every family, where the release geometry comes from;
+        # elsewhere the measured slack, which also limits how many glyphs may use it
+        limit, allowed = OUTLINE_LIMITS
         for name, source in FAMILIES:
             reader = FontReader(FONTS / name)
             dev = {}
@@ -331,8 +355,11 @@ class Fonts(unittest.TestCase):
                 a, b = out.centroid, g.geom.centroid
                 dev[c] = out.boundary.hausdorff_distance(affinity.translate(g.geom, a.x - b.x, a.y - b.y).boundary)
             worst = max(dev, key=dev.get)
-            self.assertLessEqual(dev[worst], OUTLINE_TOL, f"{name}: {worst!r}")
+            over = "".join(c for c, d in dev.items() if d > OUTLINE_TOL)
+            self.assertLessEqual(dev[worst], limit, f"{name}: {worst!r}; over {OUTLINE_TOL:g}w: {over}")
+            self.assertLessEqual(len(over), allowed, f"{name}: {len(over)} glyphs over {OUTLINE_TOL:g}w: {over}")
 
+    @compares_fonts_with_sources
     def test_mono_lines_follow_setting(self):
         """build.py's line checks on Mono: every gap within GAP_TOL of the setting engine, positions
         off by no more than outline rounding (whole-unit cells, no kerning), and the 1.98 floor."""
@@ -351,6 +378,7 @@ class Fonts(unittest.TestCase):
             low = [(a, b, round(d, 3)) for a, b, d in line_gaps([(c, g) for c, g, _ in ttf]) if d < LINE_MIN]
             self.assertFalse(low, text)
 
+    @compares_fonts_with_sources          # CELL_M, LINE_MIN
     def test_mono_fixed_pitch(self):
         """Every Mono advance is the 12w cell, .notdef included and centred (Mono draws the 14 characters
         it leaves out as .notdef), and ink in neighbouring cells stays 1.98w apart."""
@@ -375,6 +403,7 @@ class Fonts(unittest.TestCase):
             x0, _, x1, _ = box.bounds
             self.assertTrue(0 < x0 and x1 < reader.hmtx[".notdef"][0] / UNITS, name)
 
+    @compares_fonts_with_sources          # CELL_F, FIGURES, LINE_MIN
     def test_tab_figure_cells(self):
         font = FontReader(FONTS / "FillaprintTab-Regular.ttf").font
         cell = CELL_F * UNITS
@@ -393,6 +422,21 @@ class Fonts(unittest.TestCase):
                    if glyf[n].numberOfContours > 0 and hmtx[n][1] != glyf[n].xMin]
             bad += [(n, hmtx[n][1], None) for n in font.getGlyphOrder() if glyf[n].numberOfContours == 0 and hmtx[n][1]]
             self.assertFalse(bad, name)
+
+
+class CISwitches(unittest.TestCase):
+    """The environment switches in fillaprint_env must mean what .github/workflows/test.yml says they mean."""
+
+    def test_reference_where_required(self):
+        if REQUIRE_REFERENCE:
+            self.assertTrue(REFERENCE, f"FILLAPRINT_REQUIRE_REFERENCE=1 on {sys.platform} {platform.libc_ver()}, "
+                                       "which is not the reference platform (docs/DEVELOPMENT.md, Platforms)")
+
+    def test_stale_fonts_only_on_pull_requests(self):
+        # On main every comparison with the committed fonts must run: the switch is for pull requests only.
+        event = os.environ.get("GITHUB_EVENT_NAME")
+        if STALE_FONTS_OK and event is not None:
+            self.assertEqual(event, "pull_request", "FILLAPRINT_COMMITTED_FONTS_MAY_BE_STALE=1 outside a pull request")
 
 
 class Licensing(unittest.TestCase):
@@ -426,6 +470,7 @@ class Licensing(unittest.TestCase):
         apply_license(font)
         self.assert_licensed(font, "apply_license")
 
+    @compares_fonts_with_sources          # beadjoint.licensing and OFL.txt
     def test_fonts_carry_license(self):
         for name, _ in FAMILIES:
             self.assert_licensed(FontReader(FONTS / name).font, name)

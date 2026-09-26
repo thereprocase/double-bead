@@ -1,3 +1,6 @@
 # The glyph tuner hashes and edits these sources byte for byte, and its patches must
 # apply to every checkout: keep Python sources LF on all platforms.
 *.py text eol=lf
+
+# The license ships inside the release archive byte for byte (tools/package_release.py): keep it LF.
+OFL.txt text eol=lf

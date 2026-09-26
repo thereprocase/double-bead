@@ -657,6 +657,10 @@ def finite(value, path="result"):
 
 
 def main():
+    # The server writes and reads these pipes as UTF-8; Windows would otherwise use its ANSI code page.
+    sys.stdin.reconfigure(encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
     try:
         output, status = json.dumps(finite(run(json.load(sys.stdin))), allow_nan=False), 0
     except TunerError as exc:
