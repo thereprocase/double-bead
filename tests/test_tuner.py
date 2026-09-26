@@ -3,6 +3,7 @@ import ast
 import copy
 import functools
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -12,9 +13,10 @@ import unittest
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from beadjoint import charset, geom, glyphs, latin
+from beadjoint import charset, geom, glyphs, latin, verify
 from tuner.model import ACCENTS, FUNCTIONS, ROOT, SHARED, SOURCE_PATHS, Catalog, TunerError, number, source_commit
 from tuner.serve import TunerServer
+from tuner.worker import CACHE_ENV, Beadjoint, absent, explain, fill_change
 
 HEX = "0123456789abcdef0123456789abcdef01234567"
 
@@ -302,25 +304,73 @@ class CatalogStructure(unittest.TestCase):
         self.assertLessEqual({d["base"] for d in derived.values()}, set(charset.raw_p()))
 
 
+class WorkerLogic(unittest.TestCase):
+    class Meter:
+        def __init__(self, area):
+            self.area = area
+
+        def filled(self, geom):
+            return self.area
+
+    def test_limits_come_from_the_font_code(self):
+        bj = Beadjoint()
+        self.assertEqual(bj.fill_warn, geom.PINCH_MIN_AREA)
+        self.assertEqual(bj.line_min, verify.LINE_MIN)
+        self.assertEqual(bj.mono_max, charset.MONO_MAX)
+        self.assertAlmostEqual(bj.tab_digit, 7.02)
+
+    def test_fill_warning_threshold(self):
+        limit = Beadjoint().fill_warn
+        m = self.Meter
+        self.assertFalse(fill_change(m(1.0), None, m(1.0 + limit), None, limit)[2])
+        self.assertTrue(fill_change(m(1.0), None, m(1.0 + limit + 1e-6), None, limit)[2])
+        self.assertEqual(fill_change(m(None), None, m(5.0), None, limit), (None, None, False))
+
+    def test_absent_glyphs_are_explained_per_family(self):
+        bj = Beadjoint()
+        self.assertEqual(absent(bj, "M", ["©"]), "Mono has no ©: wider than Mono's 10w limit.")
+        self.assertEqual(absent(bj, "P", ["x"]), "Proportional has no x.")
+
+    def test_construction_errors_name_the_construction(self):
+        session = new_session()
+        session["values"][slot("n", "Base", "S1 point 2 corner radius")["id"]] = 8
+        source = catalog().edited_sources(session)["beadjoint/glyphs.py"]
+        namespace = {"__name__": "beadjoint.edited_for_test", "__package__": "beadjoint"}
+        exec(compile(source, "beadjoint/glyphs.py", "exec"), namespace)
+        try:            # not assertRaises: it drops the traceback that locates the construction
+            namespace["_raw_p"]()
+        except ValueError as exc:
+            message = explain(exc, catalog())
+        else:
+            self.fail("the edited n should not build")
+        self.assertEqual(message, "n (Base): the rounded corners at (1, 1) and (6, 1) together need 9w of a segment "
+                                  "only 5w long. Reduce the corner radius or lengthen the segment.")
+
+    def test_other_errors_have_plain_messages(self):
+        for exc in (ZeroDivisionError("float division by zero"), RuntimeError("GEOS: TopologyException"),
+                    ValueError("solve: target not bracketed")):
+            message = explain(exc, catalog())
+            with self.subTest(exc=exc):
+                self.assertTrue(message.startswith("The edited glyph sources"))
+                self.assertNotIn(type(exc).__name__, message)
+                self.assertNotIn(str(exc), message)
+
+
 class WorkerRuns(unittest.TestCase):
     def setUp(self):
-        self.catalog = catalog()
         self.session = new_session()
 
-    def target(self, char, group):
-        return target(char, group)
+    def edit(self, char, group, labels, value):
+        for label in labels:
+            self.session["values"][slot(char, group, label)["id"]] = value
 
     def test_edit_reaches_real_geometry_and_derived_accents(self):
         # Widen the right stem of n, preserving its width. This must flow into
         # accented n, Tab, and Mono's counter-widened n. Mono's rebuilt r stays put.
-        for s in self.target("n", "Base")["slots"]:
-            if s["label"].endswith(" x") and s["value"] == 6:
-                self.session["values"][s["id"]] = 6.5
+        self.edit("n", "Base", ("S1 point 3 x", "S1 point 4 x"), 6.5)
         request = {"session": self.session, "family": "P", "char": "n", "text": "n ñ ņ 0123", "validate": True}
-        process = subprocess.run([sys.executable, "-m", "tuner.worker"], input=json.dumps(request),
-                                 text=True, capture_output=True, cwd=ROOT, timeout=180)
+        process, result = run_worker(request)
         self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
-        result = json.loads(process.stdout)
         self.assertNotEqual(result["before"], result["after"])
         self.assertAlmostEqual(result["width"], 7.5, places=2)
         self.assertEqual(result["failures"], [])
@@ -329,53 +379,81 @@ class WorkerRuns(unittest.TestCase):
         self.assertIn(("T", "n"), changed)
         self.assertIn(("M", "n"), changed)
         self.assertNotIn(("M", "r"), changed)
+        self.assertFalse(any(g["failed"] for g in result["changed"]))
         self.assertEqual(result["warnings"], [])
         self.assertFalse(result["fill"]["warn"])
 
-    def test_closing_a_counter_warns_that_finishing_filled_it(self):
+    def test_closing_a_counter_warns_and_the_glyph_cache_changes_nothing(self):
         # Right stem of n at x = 3.5 leaves a 0.5w slit; finishing fills it with ink, so the
         # glyph still passes the hard checks. The preview must say so rather than stay green.
-        for s in self.target("n", "Base")["slots"]:
-            if s["label"].endswith(" x") and s["value"] == 6:
-                self.session["values"][s["id"]] = 3.5
+        self.edit("n", "Base", ("S1 point 3 x", "S1 point 4 x"), 3.5)
         request = {"session": self.session, "family": "P", "char": "n", "text": "n", "validate": False}
-        process = subprocess.run([sys.executable, "-m", "tuner.worker"], input=json.dumps(request),
-                                 text=True, capture_output=True, cwd=ROOT, timeout=180)
+        plain = {k: v for k, v in os.environ.items() if k != CACHE_ENV}
+        process, result = run_worker(request, env=plain)
         self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
-        result = json.loads(process.stdout)
         self.assertTrue(result["checks"]["ok"])
         self.assertTrue(result["fill"]["warn"])
         self.assertEqual(result["fill"]["before"], 0)
         self.assertGreater(result["fill"]["after"], 3)
+        # The first cached run stores the unedited font; the second reads it back.
+        with tempfile.TemporaryDirectory() as directory:
+            for _ in range(2):
+                process, cached = run_worker(request, env={**plain, CACHE_ENV: directory})
+                self.assertEqual(process.returncode, 0, process.stderr)
+                self.assertEqual(cached, result)
+            self.assertTrue(os.listdir(directory))
 
     def test_fill_warning_follows_the_dotless_base_of_accented_i_and_j(self):
         # Marks above sit on dotless ı and ȷ: a new fill in ȷ must reach ĵ, and moving the
         # dot of i must not be charged to í (its geometry does not change).
-        values = self.session["values"]
-        for s in self.target("ȷ", "Specials")["slots"]:
-            if s["label"] == "S1 point 3 y":
-                values[s["id"]] = 10
-        for s in self.target("i", "Base")["slots"]:
-            if s["label"] == "D2 point 1 y":
-                values[s["id"]] = -2.2
-        self.assertEqual(len(values), 2)
+        self.edit("ȷ", "Specials", ("S1 point 3 y",), 10)
+        self.edit("i", "Base", ("D2 point 1 y",), -2.2)
         request = {"session": self.session, "family": "P", "char": "í", "text": "í ĵ", "validate": True}
-        process = subprocess.run([sys.executable, "-m", "tuner.worker"], input=json.dumps(request),
-                                 text=True, capture_output=True, cwd=ROOT, timeout=300)
+        process, result = run_worker(request)
         self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
-        result = json.loads(process.stdout)
         self.assertFalse(result["fill"]["warn"])
         self.assertIn("P:ȷ", result["warnings"])
         self.assertIn("P:ĵ", result["warnings"])
         self.assertNotIn("P:í", {g["family"] + ":" + g["char"] for g in result["changed"]})
 
+    def test_validation_reports_every_failure(self):
+        # n at 8.5w no longer fits Mono (its widened form is 10.5w), and a 8.5w 0 overflows Tab's
+        # 9w digit cell. Both must be reported in one run, as objects the page can act on.
+        self.edit("n", "Base", ("S1 point 3 x", "S1 point 4 x"), 7.5)
+        self.edit("0", "Base", ("So1 point 2 x", "So1 point 3 x"), 7.5)
+        request = {"session": self.session, "family": "P", "char": "n", "text": "n0", "validate": True}
+        process, result = run_worker(request)
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+        for f in result["failures"]:
+            self.assertEqual(set(f), {"family", "char", "code", "message"})
+            self.assertNotIn("Beadjoint", f["message"])
+        failures = {(f["family"], f["char"], f["code"]) for f in result["failures"]}
+        self.assertLessEqual({("M", c, "disappeared") for c in "nñńņň"}, failures)
+        self.assertIn(("T", "0", "tabular_width"), failures)
+        changed = {(g["family"], g["char"]): g for g in result["changed"]}
+        self.assertEqual(changed["M", "ñ"], {"family": "M", "char": "ñ", "checks": None, "fill_warn": False,
+                                             "failed": True, "disappeared": True})
+        self.assertTrue(changed["T", "0"]["failed"])
+        self.assertFalse(changed["P", "0"]["failed"])
+
+    def test_request_errors_are_plain(self):
+        for request, code, text in (({"family": "X"}, "bad_request", "Proportional, Tab or Mono"),
+                                    ({"char": "Ж"}, "no_glyph", "Fillaprint has no glyph for Ж"),
+                                    ({"text": "Пa"}, "text_glyphs", "Fillaprint has no glyph for П")):
+            process, result = run_worker({"session": self.session, **request})
+            with self.subTest(code=code):
+                self.assertEqual(process.returncode, 1)
+                self.assertEqual(result["code"], code)
+                self.assertIn(text, result["error"])
+                self.assertNotIn("Beadjoint", result["error"])
+
     def test_fill_meter_covers_every_glyph(self):
         # Warnings rely on finished geometry reaching the Glyph records unchanged; a pipeline
         # change that breaks that would otherwise silence them without failing anything.
-        script = ("from tuner.worker import FillMeter\n"
-                  "meter = FillMeter()\n"
-                  "from beadjoint import charset\n"
-                  "for glyphs in (charset.full_p(), charset.full_mixed(), charset.full_m()):\n"
+        script = ("from tuner.worker import Beadjoint, FillMeter\n"
+                  "bj = Beadjoint()\n"
+                  "meter = FillMeter(bj)\n"
+                  "for glyphs in (bj.charset.full_p(), bj.charset.full_mixed(), bj.charset.full_m()):\n"
                   "    missing = [c for c, g in glyphs.items() if meter.filled(g.geom) is None]\n"
                   "    assert not missing, missing\n"
                   "    assert meter.filled(glyphs['N'].geom) > 1, 'acute joins are filled by design'\n"
