@@ -150,7 +150,8 @@ def _slash():
 def _raw_extension():
     """Glyphs outside the spec's sets, built to its rules (spec 12) for the masonry labels. These are
     the spec sets' copies, for the conformance checks; all three font families draw J " - . / from
-    latin.capitals() and latin.symbols(), which build the same shapes."""
+    latin.capitals() and latin.symbols(), which build the same shapes (tests/test_beadjoint.py,
+    Construction.test_extension_copies_match_latin, holds each pair within 1e-9 w^2)."""
     e = {}
     e["J"] = S((6, -4), (6, 9), (1, 9), (1, 6, B))          # stem flat on the cap line, hook with ball
     e["/"] = _slash()

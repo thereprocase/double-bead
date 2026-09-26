@@ -145,6 +145,13 @@ class Construction(unittest.TestCase):
         for c, g in latin.mono_extras().items():
             self.assertTrue(charset.raw_m()[c].equals_exact(g, 0), c)
 
+    def test_extension_copies_match_latin(self):
+        # The spec sets check glyphs._raw_extension's copies while the fonts draw latin's shapes; an edit
+        # to one must reach the other or the conformance checks stop describing the fonts.
+        ext, raw = spec._raw_extension(), charset.raw_p()
+        for c in spec.EXTENSION:
+            self.assertLess(ext[c].symmetric_difference(raw[c]).area, 1e-9, c)
+
     def test_mono_shares_p_shapes(self):
         # Mono once took J " - . / from the spec set's uncataloged duplicates, so tuner edits to
         # them (and to the ' tick " shares) changed P and Tab but not Mono.
