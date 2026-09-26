@@ -222,7 +222,7 @@ and the tuner starts without edits.
 Contributor pull requests are source-only. `python build.py` and the tests must
 pass, but the fonts, specimen images, and `report.json` they rewrite differ from
 machine to machine; maintainers rebuild them once per release in the pinned
-environment. `git restore fonts specimen report.json` discards those outputs, and
+environment on Linux. `git restore fonts specimen report.json` discards those outputs, and
 `git status --short` should then list only files under `beadjoint/`.
 
 Open a pull request with the source diff, why the glyph is better, affected
@@ -262,7 +262,10 @@ removing strokes, changing endpoint types, new character
 coverage, and changing construction topology still require editing Python. It
 does not generate new TTFs or run OrcaSlicer in the browser. The preview uses
 source geometry; it is not a screenshot of an installed font or a simulated
-print guarantee.
+print guarantee. It is computed on your machine: on macOS and Windows a few
+glyphs finish slightly differently from the Linux-built release (Mono 6, 8, e
+and z with their accents, by up to 0.21w; see
+[DEVELOPMENT.md](DEVELOPMENT.md#platforms)).
 
 The local server accepts only bounded, finite numeric substitutions at cataloged
 AST locations. It does not accept Python expressions or arbitrary file paths.

@@ -28,6 +28,9 @@ python build.py && python -m unittest discover -s tests
 git status --short fonts/        # empty when your build matches the committed fonts
 ```
 
+Only a Linux build (with glibc) matches the committed fonts byte for byte; macOS and Windows
+finish a few glyphs differently (see [Platforms](#platforms)).
+
 The TTFs depend on the fontTools version as well as the glyph sources: the same sources
 built with a different fontTools give different bytes. Keep `requirements.txt` pinned and
 rebuild the fonts in the same commit whenever the pins or the sources change.
@@ -61,6 +64,34 @@ The older `tools/showcase.py` produces the full glyph, language, symbol, and fam
 sheets. Its final slicer panel additionally requires `site/dist/crops/`, generated
 from the companion demo workflow. The committed `showcase/6-sliced.png` is a
 toolpath visualization from that workflow, not a photograph or a new slicing run.
+
+## Platforms
+
+Releases are built on Linux x86-64, where CI rebuilds the committed fonts byte for byte.
+Linux with glibc reproduces that build's glyph geometry exactly: CI found x86-64 and aarch64
+with glibc 2.39 identical, and so was an x86-64 build with glibc 2.44. macOS and Windows do
+not, with the same pinned packages (shapely 2.1.2 with GEOS 3.13.1, numpy 2.5.3, scipy
+1.18.1). Their C math libraries round `sin`, `cos`, `tan`, `acos` and `atan2` differently
+from glibc in the last one to three bits for some arguments. Those functions place the
+vertices of the fillet arcs (`geom.fillet`, through Python's `math`) and of GEOS's round
+buffers, so most glyph coordinates differ in their last bits before finishing. Mostly that
+is harmless, but where edges touch or nearly touch, those bits decide whether a hairline
+sliver joins two pockets of negative space or a crack opens where two fillet arcs meet,
+and finishing (`geom.finish`) decides by area which pockets to fill. CI measured:
+
+| Platform | Glyphs | Distance from the release outline |
+| --- | --- | --- |
+| Windows | Mono 6, 8, e ę ĕ ě ē é è ė ê ë | 0.205 to 0.213 w; in 6, two 0.054 w² corner pockets join into one 0.108 w² pocket, over the 0.1 w² fill threshold |
+| Windows | Å, Ů | the ring's top 2.1e-5 w higher: a crack where two of its fillet arcs meet is filled |
+| macOS, Apple silicon and Intel | Mono z ź ż ž | 0.045 to 0.048 w: a 0.103 w² sliver along the diagonal is filled |
+
+Every other glyph stays within the 0.03 w build tolerance of the release, and Python 3.12
+and 3.14 give identical results on each platform. The tests therefore compare the committed
+fonts with the local geometry at 0.03 w only on Linux with glibc and allow 0.25 w elsewhere;
+the line-spacing band test likewise allows 1e-4 w instead of 1e-6 w. CI runs the full suite
+on Linux, macOS and Windows. Fonts built on macOS or Windows differ from the release in the
+glyphs above, so build releases on Linux. The glyph tuner's previews show the local geometry
+and differ from the release in the same way.
 
 ## Glyph tuner
 

@@ -37,6 +37,9 @@ Nothing else needs to change: `beadjoint/fontfile.py`, `tools/package_release.py
 
 ## 3. Rebuild the fonts in a fresh pinned environment
 
+Build on Linux, where CI reproduces the committed fonts; macOS and Windows finish a few glyphs
+differently (see [DEVELOPMENT.md](DEVELOPMENT.md#platforms)).
+
 ```sh
 python -m venv .venv && . .venv/bin/activate
 python -m pip install --only-binary=:all: -r requirements.txt

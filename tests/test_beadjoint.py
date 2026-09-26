@@ -5,9 +5,11 @@
 Covers the geometry primitives, the construction entry points, the spec's reference results, the hard
 rules on every glyph of every set, the setting engine's line check, the line-spacing band, and the
 built TTFs (outlines, metrics, set lines and license metadata read back). The TTF tests read the
-committed fonts: rebuild them (python build.py) after changing the sources.
+committed fonts: rebuild them (python build.py) after changing the sources. Two comparisons are exact only
+on the platform the release geometry comes from (REFERENCE below).
 """
 import math
+import platform
 import re
 import sys
 import unittest
@@ -33,6 +35,14 @@ FONTS = ROOT / "fonts"
 UNITS = 50
 OUTLINE_TOL = 1.5 / UNITS      # build.py: vertex rounding, simplification, centroid alignment
 GAP_TOL = 0.1 + 0.03           # build.py: the spec's 0.1w kern drop plus rounding
+# The release is built on Linux x86-64, and Linux with glibc reproduces its glyph geometry bit for bit.
+# macOS and Windows round sin, cos, tan, acos and atan2 differently in the last bit, and finishing turns a
+# few of those differences into filled corners (docs/DEVELOPMENT.md, "Platforms"). There the committed
+# fonts and the line-spacing band are checked with the slack measured on them: outlines up to 0.213w off
+# (Windows: Mono 6, 8, e and its accents; macOS: Mono z and its accents, 0.048w), Å and Ů 2.1e-5w taller.
+REFERENCE = sys.platform == "linux" and platform.libc_ver()[0] == "glibc"
+PLATFORM_OUTLINE_TOL = 0.25
+PLATFORM_BAND_TOL = 1e-4
 
 
 LINES = ["The quick brown fox jumps over the lazy dog.", "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG",
@@ -273,9 +283,10 @@ class LineSpacing(unittest.TestCase):
 
     def test_ink_band(self):
         self.assertEqual(self.BAND[1] - self.BAND[0], self.PITCH - 2)
+        slack = 1e-6 if REFERENCE else PLATFORM_BAND_TOL        # Å and Ů reach the band's top exactly
         lowest, highest = -99.0, 99.0
         for name, glyphs in (("P", full_p()), ("T", full_mixed()), ("M", full_m())):
-            outside = {c for c, g in glyphs.items() if g.bounds[1] < self.BAND[0] - 1e-6 or g.bounds[3] > self.BAND[1] + 1e-6}
+            outside = {c for c, g in glyphs.items() if g.bounds[1] < self.BAND[0] - slack or g.bounds[3] > self.BAND[1] + slack}
             self.assertEqual(outside, set(self.COMMA_BELOW), name)
             lowest = max(lowest, max(g.bounds[3] for g in glyphs.values()))
             highest = min(highest, min(g.bounds[1] for g in glyphs.values()))
@@ -322,7 +333,8 @@ class Fonts(unittest.TestCase):
                 self.assertFalse(low, f"{name}: {text!r}")
 
     def test_outlines_follow_source(self):
-        # build.py's tolerance, on every glyph of every family
+        # build.py's tolerance, on every glyph of every family, where the release geometry comes from
+        tolerance = OUTLINE_TOL if REFERENCE else PLATFORM_OUTLINE_TOL
         for name, source in FAMILIES:
             reader = FontReader(FONTS / name)
             dev = {}
@@ -331,7 +343,8 @@ class Fonts(unittest.TestCase):
                 a, b = out.centroid, g.geom.centroid
                 dev[c] = out.boundary.hausdorff_distance(affinity.translate(g.geom, a.x - b.x, a.y - b.y).boundary)
             worst = max(dev, key=dev.get)
-            self.assertLessEqual(dev[worst], OUTLINE_TOL, f"{name}: {worst!r}")
+            over = "".join(c for c, d in dev.items() if d > OUTLINE_TOL)
+            self.assertLessEqual(dev[worst], tolerance, f"{name}: {worst!r}; over {OUTLINE_TOL:g}w: {over}")
 
     def test_mono_lines_follow_setting(self):
         """build.py's line checks on Mono: every gap within GAP_TOL of the setting engine, positions
