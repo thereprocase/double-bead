@@ -16,37 +16,22 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.stdout.reconfigure(encoding="utf-8")
 
-import numpy as np  # noqa: E402
-from scipy import ndimage  # noqa: E402
 from shapely import affinity  # noqa: E402
 
-from beadjoint import charset, geom  # noqa: E402
+from beadjoint import charset  # noqa: E402
 from beadjoint import glyphs as spec  # noqa: E402
 from beadjoint.charset import CHARS, full_m, full_mixed, full_p, glyph_name  # noqa: E402
 from beadjoint.geom import DOT, S, So, fillet, soft  # noqa: E402
-from beadjoint.glyphs import FIGURES, pieces  # noqa: E402
+from beadjoint.glyphs import FIGURES  # noqa: E402
 from beadjoint.readback import FontReader  # noqa: E402
 from beadjoint.setting import CELL_F, CELL_M, kerned, mixed, tabular  # noqa: E402
-from beadjoint.verify import LINE_MIN, MAX_T, RES, check_glyph, line_gaps, raster  # noqa: E402
+from beadjoint.verify import (FUSED_BY_DESIGN, LINE_MIN, MAX_T, SHIPPED_MAX_T, check_glyph, fused_pieces,  # noqa: E402
+                              is_dot, line_gaps, piece_gap, piece_thickness)
 
 FONTS = ROOT / "fonts"
 UNITS = 50
 OUTLINE_TOL = 1.5 / UNITS      # build.py: vertex rounding, simplification, centroid alignment
 GAP_TOL = 0.1 + 0.03           # build.py: the spec's 0.1w kern drop plus rounding
-# Finishing fills acute joins solid (spec 6), so shipped glyphs run past R2's 2.85. The designed
-# maxima: the arrow tips 4.84, V 4.75, N 4.54, the 4w bullet 3.97. A slab like v0.1.1's fused ĳ
-# (5.5) is a defect.
-SHIPPED_MAX_T = 4.85
-
-
-def piece_thickness(geom):
-    """[(thickness, area)] for each separate piece of ink, from one 40 px/w raster as in verify."""
-    mask = raster(geom)
-    edt = ndimage.distance_transform_edt(mask)
-    lab, n = ndimage.label(mask)
-    idx = np.arange(1, n + 1)
-    return [(2 * float(t) / RES, float(a) / RES ** 2)
-            for t, a in zip(ndimage.maximum(edt, lab, idx), ndimage.sum(mask, lab, idx))]
 
 
 LINES = ["The quick brown fox jumps over the lazy dog.", "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG",
@@ -116,7 +101,7 @@ class SpecReference(unittest.TestCase):
         for name, glyphs in sets.items():
             for c, g in glyphs.items():
                 for t, area in piece_thickness(g.geom):
-                    if area < 1.1 * math.pi * (t / 2) ** 2:
+                    if is_dot(t, area):
                         self.assertAlmostEqual(t, 2 * DOT, delta=0.05, msg=f"{name}:{c} dot")
                     else:
                         self.assertLessEqual(t, MAX_T, f"{name}:{c}")
@@ -169,17 +154,21 @@ class Construction(unittest.TestCase):
 
 class HardRules(unittest.TestCase):
     """No thin ink, no thin enclosed holes, separate pieces >= 1.98 w, and no ink thicker than the
-    designed maxima (SHIPPED_MAX_T), in every glyph of every set."""
+    designed maxima (verify.SHIPPED_MAX_T), in every glyph of every family, as build.py checks."""
 
     def check(self, glyphs):
-        bad = []
+        bad, thick = [], []
         for c, g in glyphs.items():
             r = check_glyph(g.geom)
-            ps = pieces(g.geom)
-            gap = min((a.distance(b) for i, a in enumerate(ps) for b in ps[i + 1:]), default=99.0)
-            if r["thin"] or r["islands"] or gap < 1.98 or r["thickness"] > SHIPPED_MAX_T:
-                bad.append((c, r["thin"], r["islands"], round(gap, 3), r["thickness"]))
+            gap = piece_gap(g.geom)
+            if r["thin"] or r["islands"] or gap < LINE_MIN:
+                bad.append((c, r["thin"], r["islands"], round(gap, 3)))
+            if r["thickness"] > SHIPPED_MAX_T:
+                thick.append((c, r["thickness"]))
         self.assertFalse(bad)
+        self.assertFalse(thick, f"over SHIPPED_MAX_T = {SHIPPED_MAX_T}w, which sits just above the designed maxima of filled "
+                                "joins (arrow tips 4.84w, V 4.75w, N 4.54w) to absorb raster rounding. The guard against "
+                                "pieces fused by finishing is Finishing.test_no_pieces_fused.")
 
     def test_full_p(self):
         self.assertEqual(len(full_p()), len(CHARS))
@@ -198,28 +187,17 @@ class HardRules(unittest.TestCase):
 class Finishing(unittest.TestCase):
     """Finishing fills pinches in a glyph's negative space; it must never join pieces that the raw
     geometry keeps apart (v0.1.1's 3w dots put ĳ's i and j 0.5w apart and it filled them solid).
+    build.py runs the same check.
 
-    One join is designed: the spec's Mono k (SPEC section 8) stops its arm 0.25w short of the stem, and
-    finishing fills that notch tip, which R3 allows at an acute join. The set is exact, so a new join
-    fails until it is fixed or added here with its reason."""
-
-    JOINED = {"M": {"k"}}
-
-    def fused(self, glyphs, raw):
-        """{char: raw pieces per finished piece} wherever one finished piece holds several raw ones."""
-        out = {}
-        for c, g in glyphs.items():
-            parts = pieces(geom._clean(raw[c]))
-            counts = [sum(1 for q in parts if f.distance(q) < 1e-9) for f in pieces(g.geom)]
-            if max(counts) > 1:
-                out[c] = counts
-        return out
+    One join is designed, verify.FUSED_BY_DESIGN: the spec's Mono k (SPEC section 8) stops its arm 0.25w
+    short of the stem, and finishing fills that notch tip, which R3 allows at an acute join. The set is
+    exact, so a new join fails until it is fixed or added there with its reason."""
 
     def test_no_pieces_fused(self):
         inputs = charset.finish_inputs()          # what finishing received, recorded as the families were built
         for name, glyphs in (("P", full_p()), ("T", full_mixed()), ("M", full_m())):
             self.assertEqual(set(inputs[name]), set(glyphs), name)
-            self.assertEqual(set(self.fused(glyphs, inputs[name])), self.JOINED.get(name, set()), name)
+            self.assertEqual(set(fused_pieces(glyphs, inputs[name])), set(FUSED_BY_DESIGN.get(name, ())), name)
 
     def test_raw_dicts_are_read_only(self):
         for raw in (charset.raw_p(), charset.raw_m(), charset.finish_inputs()["P"]):

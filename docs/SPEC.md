@@ -120,9 +120,11 @@ fillet_inside(g)   notch = ((g ⊕ 0.5) ⊖ 0.5) − g
   the outline.
 
 Filled joins are solid ink by design and measure over R2's 2.85: N 4.54w, v 4.26w, the
-arrows 4.84w. §11's reference results are for the spec sets. The build runs the thin and
-island checks on every glyph of each family as read back from its TTF. The glyph tuner warns
-when an edit makes `fill_pinches` add more than 0.5 w² over the original glyph.
+arrows 4.84w. The build caps the families' ink at `SHIPPED_MAX_T` = 4.85w and checks that
+finishing joins no pieces its input kept apart (§11). One join is designed: the spec's Mono k
+(§8) stops its arm 0.25w short of the stem, and finishing fills that notch tip, as R3 allows
+at acute joins. The glyph tuner warns when an edit makes `fill_pinches` add more than 0.5 w²
+over the original glyph.
 
 ## 7. Proportional glyphs (set P)
 
@@ -281,15 +283,38 @@ between figures. Every font: the lsb stored in hmtx is the rounded outline's xMi
 
 ```
 raster at 40 px/w
-thickness(g)  = 2 * max(EDT(g)) / 40                      require ≤ 2.85 (2.83 at crossings)
-thin(g)       = pieces of g − ((g ⊖ 0.98) ⊕ 0.98), eroded 0.03, area > 0.5   require none
-tight(g)      = pieces of ((g ⊕ 0.98) ⊖ 0.98) − g, same filter                 informational
-line check    = dist(neighbour_i, neighbour_i+1) ≥ 1.98 for every set line
+thickness(g)  = 2 * max(EDT(g)) / 40, per separate piece of ink
+dot           = a piece whose area is under 1.1 × that of its inscribed disk (R11)
+thin(g)       = pieces of g − ((g ⊖ 0.98) ⊕ 0.98), eroded 0.03, area > 0.5
+tight(g)      = pieces of ((g ⊕ 0.98) ⊖ 0.98) − g, same filter
+islands(g)    = tight pieces enclosed by ink
+piece gap(g)  = smallest true distance between separate pieces of g
+line check    = dist(glyph_i, glyph_j) for the next three glyphs j of a set line
 ```
 
 Note: opening at exactly r = 1 deletes exact-2w strokes; the check radius must sit below 1.
 
-Reference results: P max 2.97 (the R11 dots of i, j and the other dotted glyphs; stroke-only glyphs max 2.83 at f, t crossings); M max 2.97; no thin pieces; no neighbour gaps under 2w in any setting.
+`python build.py` exits 1 unless all of these hold (`beadjoint/verify.py` holds the limits):
+
+- **Spec sets** P, M and 1ₜ (§7, §8 and the extension glyphs, `soft` only): thickness ≤ 2.85
+  for every piece that is not a dot (R2); no thin pieces; no islands; piece gap ≥ 1.98, except
+  M's k, whose notch tip only the families' finishing fills (§6).
+- **Font families** Fillaprint, Tab and Mono (`finish`, §6), from the source: piece gap ≥ 1.98,
+  and finishing joins no pieces its input kept apart, except Mono's k (`FUSED_BY_DESIGN`).
+- **Font families as read back from each TTF:** outlines within 1.5 font units of the source;
+  thickness ≤ `SHIPPED_MAX_T` = 4.85 (filled joins; the arrow tips set the maximum, 4.84); no
+  thin pieces (checked at radius 0.98 − 0.02, one font unit) and no islands.
+- **Set lines** in all three settings, from the source and from each TTF: line check ≥ 1.98;
+  and from each TTF, every neighbour gap within 0.13 of the setting engine.
+
+Informational, in `report.json`: tight pieces, thickness maxima and cumulative drift. The
+tests (`tests/test_beadjoint.py`) run the same checks and add the dot sizes, the line-spacing
+band (`docs/PRINTING.md`) and the TTF metrics.
+
+Reference results: spec sets P and M max 2.97 (the R11 dots of i, j and the other dotted
+glyphs; strokes max 2.83 at the f and t crossings), pieces ≥ 2.0 apart except M's k (0.25);
+font families max 4.84 (the arrow tips); no thin pieces; no neighbour gaps under 2w in any
+setting.
 
 ## 11a. Dots (R11)
 
@@ -315,9 +340,10 @@ keeps 2w dots (`mono_extras` in `beadjoint/latin.py`). `%`, `‰` and `•` were
 (3.5w and 4w) and are unchanged.
 
 Tuning: change `DOT` in `beadjoint/geom.py` and the dot centres that depend on it (search
-`DOT` in `beadjoint/`), then run `python build.py`. The build fails if any dot comes closer
-than 2w to a stroke or a neighbouring glyph, or thins below the two-bead floor. Values from
-1.25 (2.5w) to 1.5 (3w) keep every dot in the 2- or 3-bead band.
+`DOT` in `beadjoint/`), then run `python build.py`. The build fails if a dot comes closer than
+1.98w to another piece of its glyph, if finishing fuses it with a stroke, if it thins below the
+two-bead floor, or if it comes closer than 1.98w to a neighbouring glyph in the checked lines
+(§11). Values from 1.25 (2.5w) to 1.5 (3w) keep every dot in the 2- or 3-bead band.
 
 ## 12. Not yet defined
 
