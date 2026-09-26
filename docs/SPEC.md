@@ -87,7 +87,42 @@ solve(build):          find vy by bisection on [9.5, 16] such that max_y(build(v
 ```
 soft(g) = (g ⊖ 0.5) ⊕ 0.5        # morphological opening, r = 0.5w
 ```
-Applied to every glyph in every set. Leaves balls and R ≥ 0.5 corners untouched.
+Applied to every glyph of the spec sets (§7, §8). Leaves balls and R ≥ 0.5 corners untouched.
+
+The font families finish every glyph, base glyphs and composites alike, with `finish`
+(`beadjoint/geom.py`, applied in `beadjoint/charset.py`): pinches filled, inside corners
+rounded, then `soft`.
+
+```
+finish(g) = soft(fillet_inside(fill_pinches(g)))
+
+fill_pinches(g)    tight = ((g ⊕ PINCH_R) ⊖ PINCH_R) − g, eroded 0.03
+                   every tight piece with area > PINCH_MIN_AREA becomes ink
+                   PINCH_R = 0.98, PINCH_MIN_AREA = 0.5 w²
+fillet_inside(g)   notch = ((g ⊕ 0.5) ⊖ 0.5) − g
+                   each notch piece becomes ink unless it is small and open:
+                   area ≤ FILLET_MIN_AREA and mouth to the negative space > 1.2 √area
+                   FILLET_MIN_AREA = 0.1 w²
+```
+
+- **PINCH_R = 0.98.** Negative space narrower than 1.96w is a pinch. Two beads of body
+  colour cannot print a narrower slit, so it is filled with letter colour instead of being
+  left for the slicer to drop or smear. Acute wedges (the N, v, k, x, y, z joints) and
+  near-touching pieces fill. Counters, apertures and gaps of 2w or more stay open. The radius
+  sits just under 1 for the same reason as the thin check's (§11).
+- **PINCH_MIN_AREA = 0.5 w².** The size filter of §11's tight pieces. A plain 90° inside
+  corner (0.2 w²) stays open. The 0.03 erosion comes first so hairline slivers cannot join
+  pieces.
+- **FILLET_MIN_AREA = 0.1 w².** Inside corners get R0.5 only where the fill seals a notch,
+  slit or pinhole. An open right-angle or obtuse corner (a small piece with a wide mouth) stays
+  sharp. Filling those swelled every crossing from 2.83 to 3.22w and every T from 2.5 to
+  2.75w, and the one-wall top layer printed that as 0.52 mm beads pushing colour 0.1 mm past
+  the outline.
+
+Filled joins are solid ink by design and measure over R2's 2.85: N 4.54w, v 4.26w, the
+arrows 4.84w. §11's reference results are for the spec sets. The build runs the thin and
+island checks on every glyph of each family as read back from its TTF. The glyph tuner warns
+when an edit makes `fill_pinches` add more than 0.5 w² over the original glyph.
 
 ## 7. Proportional glyphs (set P)
 
