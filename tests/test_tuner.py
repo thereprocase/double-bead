@@ -548,6 +548,22 @@ class GlyphCache(unittest.TestCase):
         path.write_bytes(good[:-1])
         self.assertEqual(FinishedCache(self.dir, self.SECRET).entries, {})
 
+    def test_a_cache_over_the_size_limit_is_not_written(self):
+        # _load ignores files over the limit, so writing one would leave every later worker cold.
+        path = self.saved((self.key, 0.25, self.shape.wkb, True))
+        loadable = path.read_bytes()
+        cache = FinishedCache(self.dir, self.SECRET)
+        large = geom.D((9, 9), 5)
+        key = FinishedCache.key(b"fingerprint", large)
+        cache.put(key, 1.0, large.wkb, persist=True)
+        with mock.patch("tuner.worker.MAX_CACHE_BYTES", len(loadable) + 100), \
+                contextlib.redirect_stderr(io.StringIO()) as log:
+            cache.save()
+            self.assertEqual(path.read_bytes(), loadable, "the previous file stays")
+            self.assertEqual(list(FinishedCache(self.dir, self.SECRET).entries), [self.key])
+        self.assertEqual(cache.get(key)[1].wkb, large.wkb, "this worker keeps the entry")
+        self.assertIn("was not saved", log.getvalue())
+
     def test_a_record_that_does_not_parse_is_a_miss(self):
         self.saved((self.key, 0.25, b"not geometry", True))
         cache = FinishedCache(self.dir, self.SECRET)

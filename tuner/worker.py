@@ -98,7 +98,8 @@ CACHE_ENV = "FILLAPRINT_TUNER_CACHE"
 CACHE_SECRET_ENV = "FILLAPRINT_TUNER_CACHE_SECRET"
 _RECORD = struct.Struct("<32sdI")   # cache key, pinch-fill area, output size; then the output and its HMAC
 _MAC_SIZE = hashlib.sha256().digest_size
-MAX_CACHE_BYTES = 64 * 1024 * 1024  # the unedited families take about 5 MB
+# Larger files are neither written nor read. All three unedited families take about 14 MB.
+MAX_CACHE_BYTES = 64 * 1024 * 1024
 # The functions and settings that turn raw geometry into a finished glyph. Their code and values
 # are part of every cache key, so a glyph finished by different code is never read back.
 FINISHING = ("finish", "soft", "fill_pinches", "fillet_inside", "_clean", "_robust")
@@ -221,11 +222,18 @@ class FinishedCache:
             if k not in self.volatile:
                 body = _RECORD.pack(k, a, len(w)) + w
                 records.append(body + self._mac(body))
+        data = b"".join(records)
+        self.unsaved = False
+        if len(data) > MAX_CACHE_BYTES:
+            # _load would ignore such a file and every later worker would start cold; keep the
+            # previous file and this worker's entries in memory instead, and say so.
+            print(f"tuner worker: glyph cache of {len(data) / 2 ** 20:.0f} MB exceeds "
+                  f"{MAX_CACHE_BYTES / 2 ** 20:.0f} MB and was not saved", file=sys.stderr)
+            return
         partial = self.path + ".partial"
         with open(partial, "wb") as f:
-            f.write(b"".join(records))
+            f.write(data)
         os.replace(partial, self.path)
-        self.unsaved = False
 
 
 class FillMeter:
