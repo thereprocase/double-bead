@@ -13,6 +13,8 @@ const SHAPES = {
   So: "closed stroke: like S, but the last point joins back to the first, so every point is a rounded corner.",
   D: "disk: a filled circle around point 1. Without a disk radius field it uses the shared dot radius (dots) or 1 (a 2w disk).",
   Rect: "rectangle between corners (x₀, y₀) and (x₁, y₁). Most trim strokes to a band rather than add ink.",
+  diagonal:
+    "straight 2w-wide stroke from (x₀, y₀) to (x₁, y₁), extended past both ends and cut flat on the clip lines (the cap line and baseline unless clip fields are shown).",
 };
 let catalog,
   selected,
@@ -29,8 +31,11 @@ let pending = null,
   drag = null;
 // The result on screen and the request it answered; resizes and preview changes redraw it.
 let drawn = null;
-// The last all-family validation, with the edits and sample line it checked.
+// The last all-family validation, with the edits and sample line it checked, and the last
+// attempt that could not run. wantValidation survives previews queued after the request.
 let validation = null,
+  validationError = null,
+  wantValidation = false,
   exportIntent = null;
 let previewState = "stale",
   busy = null,
@@ -40,9 +45,22 @@ let hoverHandle = null,
   handleOf = {},
   handleEls = new Map(),
   hitRadius = 0.6;
-// The session this tab last autosaved, so another tab's write can be told apart.
-let autosaved = null,
-  conflict = false;
+// Another tab changed the autosave; this tab stops writing it until someone decides.
+let conflict = false;
+// Touch screens have no hover, so help text names what works there.
+const HOVER = matchMedia("(hover: hover)").matches;
+// Whole-request errors that repeat until the edit changes, and those about the preview inputs.
+const UNDO_CODES = ["construction", "invalid_glyph", "disappeared"];
+const FAMILY_CODES = ["disappeared", "not_in_family", "text_glyphs"];
+// Failures that may pass on a second try: no server, a stuck worker, another tab.
+const TRANSIENT_CODES = [
+  "offline",
+  "timeout",
+  "worker_failed",
+  "internal",
+  "busy",
+  "error",
+];
 
 function el(tag, attrs = {}, text) {
   const n = document.createElementNS(NS, tag);
@@ -105,6 +123,14 @@ function editsKey(v = values) {
 function sampleKey() {
   return JSON.stringify([$("family").value, $("text").value]);
 }
+// A validation that could not run failed on these exact preview inputs.
+function inputsKey(body) {
+  return JSON.stringify(
+    body
+      ? [body.family, body.char, body.text]
+      : [$("family").value, $("glyph").value, $("text").value],
+  );
+}
 function parseSession(text) {
   let s;
   try {
@@ -117,8 +143,12 @@ function parseSession(text) {
     ? s
     : null;
 }
-function commitHint(s) {
-  return s?.commit && catalog.commit && s.commit !== catalog.commit
+// The server names the commit in its own session messages; add it only when it did not.
+function commitHint(s, text) {
+  return s?.commit &&
+    catalog.commit &&
+    s.commit !== catalog.commit &&
+    !/\bcommit\b/.test(text)
     ? ` It was saved at commit ${s.commit.slice(0, 12)}; this checkout is at ${catalog.commit.slice(0, 12)}.`
     : "";
 }
@@ -128,6 +158,13 @@ function commitHint(s) {
 function message(text, level = "", actions = []) {
   $("status").replaceChildren(...rich(text), ...actions);
   $("status").className = level;
+  if (level !== "progress") $("elapsed").textContent = "";
+}
+// Outcomes that appear away from the focus (the validation block) are read out from here.
+function announce(text) {
+  $("announce").textContent = "";
+  // Clearing first lets a screen reader repeat news identical to the last.
+  setTimeout(() => ($("announce").textContent = text), 50);
 }
 // Notices stay until dismissed or replaced; every preview rewrites the status line.
 // actions: [label, run, primary]; a notice with no dismiss button needs a decision.
@@ -169,6 +206,22 @@ function notice(id, level, text, actions = [], dismissible = true) {
 }
 function dismiss(id) {
   document.querySelector(`[data-notice="${id}"]`)?.remove();
+}
+// Rebuilding a list drops keyboard focus; put it back on the control with the same data-focus
+// key, or on the list itself when that control is gone.
+function keepFocus(container, rebuild) {
+  const active = document.activeElement;
+  const inside = container.contains(active) && active !== container;
+  const key = inside ? active.dataset.focus : undefined;
+  rebuild();
+  if (!inside || container.contains(document.activeElement)) return;
+  const again =
+    key && container.querySelector(`[data-focus="${CSS.escape(key)}"]`);
+  (again || container).focus({ preventScroll: true });
+}
+function focusKey(el, key) {
+  el.dataset.focus = key;
+  return el;
 }
 function fillNote(fill) {
   return `Finishing filled ${fill.after.toFixed(2)} w² of gaps narrower than 2w with ink (original ${fill.before.toFixed(2)} w²). Strokes this close print as solid ink; keep them at least 2w apart.`;
@@ -217,11 +270,24 @@ function post(path, data) {
     body: JSON.stringify(data),
   });
 }
-// A 403 means the server restarted with a new token; autosave keeps edits across a reload.
-function recovery(e, retry) {
-  return e.status === 403
-    ? button("Reload page", () => location.reload(), "inline")
-    : button("Retry", retry, "inline");
+// Buttons for a failed preview. A 403 means the server restarted with a new token, and
+// changed sources need a restart; autosave keeps edits across the reload either way. Errors
+// caused by the edit or the preview inputs repeat on retry, so they get Undo or a family switch.
+function recovery(e, req) {
+  const actions = [];
+  const add = (label, run) => actions.push(button(label, run, "inline"));
+  if (e.status === 403 || e.code === "sources_changed")
+    add("Reload page", () => location.reload());
+  if (UNDO_CODES.includes(e.code) && undo.length)
+    add("Undo", () => $("undo").click());
+  if (FAMILY_CODES.includes(e.code) && req.body.family !== "P")
+    add("Preview in Proportional", () => previewGlyph($("glyph").value, "P"));
+  if (!e.code || TRANSIENT_CODES.includes(e.code))
+    add("Retry", () => {
+      if (req.body.validate) wantValidation = true;
+      queue();
+    });
+  return actions;
 }
 
 function remember() {
@@ -236,14 +302,14 @@ function set(id, v) {
 function autosave() {
   if (conflict) return;
   try {
-    autosaved = JSON.stringify(session());
-    localStorage.setItem(STORAGE, autosaved);
+    localStorage.setItem(STORAGE, JSON.stringify(session()));
   } catch {}
 }
 function changed() {
   revision++;
   latest = null;
   exportIntent = null;
+  wantValidation = false;
   dismiss("export");
   setPreview("stale");
   autosave();
@@ -266,14 +332,38 @@ function describe(targets) {
 }
 
 function schedule(validate = false) {
+  if (validate) wantValidation = true;
   clearTimeout(timer);
-  timer = setTimeout(() => queue(validate), validate ? 0 : 450);
+  timer = setTimeout(
+    () => {
+      timer = null;
+      queue();
+    },
+    wantValidation ? 0 : 450,
+  );
 }
-function queue(validate) {
+// The newest request replaces any waiting one; a wanted validation rides along with it.
+function queue() {
+  if (busy) {
+    clearTimeout(busy.timer);
+    busy = null;
+  }
   const char = $("glyph").value;
   if ([...char].length !== 1) {
+    pending = null;
     setPreview("failed");
     message("Type exactly one character in Preview glyph.", "error");
+    // A validation still computing reports for itself when it finishes.
+    if (wantValidation && !inflight?.body.validate)
+      validationFailed(
+        apiError(
+          "Preview glyph must hold exactly one character.",
+          0,
+          "bad_request",
+        ),
+        editsKey(),
+        inputsKey(),
+      );
     return;
   }
   pending = {
@@ -282,7 +372,7 @@ function queue(validate) {
       family: $("family").value,
       char,
       text: $("text").value,
-      validate,
+      validate: wantValidation,
     },
     revision,
     edits: editsKey(),
@@ -295,19 +385,12 @@ async function drain() {
   running = true;
   const req = (inflight = pending);
   pending = null;
-  progress(req.body.validate);
+  if (req.revision === revision) progress(req);
   $("validate").disabled = true;
   try {
     const result = await post("/api/preview", req.body);
     busy = null;
-    if (req.body.validate) {
-      validation = { result, edits: req.edits, sample: req.sample };
-      renderValidation();
-      if (exportIntent === req.edits) {
-        exportIntent = null;
-        offerExport();
-      }
-    }
+    if (req.body.validate) validated(result, req);
     if (req.revision === revision) {
       latest = result;
       draw(result, req.body);
@@ -321,20 +404,12 @@ async function drain() {
       e.message =
         "The server stayed busy with another preview for a minute (another tuner tab, or this page before a reload). Retry when it has finished.";
     } else busy = null;
-    if (req.body.validate && exportIntent === req.edits) {
-      exportIntent = null;
-      notice("export", "error", "Validation could not run: " + e.message, [
-        ["Export anyway", exportPatch],
-      ]);
-    }
+    // A newer validation already waiting speaks for these edits instead.
+    if (req.body.validate && !pending?.body.validate)
+      validationFailed(e, req.edits, inputsKey(req.body));
     if (req.revision === revision) {
       setPreview("failed");
-      message(e.message, "error", [
-        recovery(e, () => {
-          busy = null;
-          queue(req.body.validate);
-        }),
-      ]);
+      message(e.message, "error", recovery(e, req));
     }
   } finally {
     running = false;
@@ -342,9 +417,13 @@ async function drain() {
     clearInterval(ticker);
     $("validate").disabled = false;
     if (pending) drain();
+    // Something outdated this request without asking for a new one: catch up now.
+    else if (req.revision !== revision && !timer && previewState === "stale")
+      schedule();
   }
 }
-// The server computes one preview at a time and answers 409 to everyone else.
+// The server computes one preview at a time and answers 409 to everyone else. Returns true
+// when the 409 is handled: a retry is waiting, or the request is obsolete and dropped.
 function waitForServer(req) {
   const now = Date.now();
   busy ??= { since: now, delay: 1000, timer: null };
@@ -353,8 +432,12 @@ function waitForServer(req) {
     busy = null;
     return false;
   }
-  busy.delay *= 2;
   if (!pending && req.revision === revision) pending = req;
+  if (!pending) {
+    busy = null;
+    return true;
+  }
+  busy.delay *= 2;
   message(
     "Another tuner tab is computing (or this page before a reload) — retrying…",
     "progress",
@@ -365,35 +448,109 @@ function waitForServer(req) {
   }, wait);
   return true;
 }
-function progress(validate) {
-  const text = validate
+// The seconds counter sits outside the status live region so it is not read out every second.
+function progress(req) {
+  const text = req.body.validate
     ? "Checking changed glyphs in all three families…"
-    : "Regenerating source geometry…";
+    : "Updating preview…";
+  if ($("status").textContent !== text) message(text, "progress");
   const started = Date.now();
-  const slow = validate
+  const slow = req.body.validate
     ? ""
-    : " The first preview after starting the tuner, or in a new family, takes longer.";
-  message(text, "progress");
+    : " · the first preview after starting the tuner, or in a new family, takes longer";
   clearInterval(ticker);
-  // First previews after a start and in a new family take several seconds; show it is working.
   ticker = setInterval(() => {
     const s = Math.round((Date.now() - started) / 1000);
-    message(`${text} ${s} s.${s >= 4 ? slow : ""}`, "progress");
+    // A request outdated by a newer edit no longer speaks for the page.
+    $("elapsed").textContent =
+      inflight === req && req.revision === revision
+        ? `${s} s${s >= 4 ? slow : ""}`
+        : "";
   }, 1000);
 }
+function validated(result, req) {
+  validation = { result, edits: req.edits, sample: req.sample };
+  validationError = null;
+  if (req.edits === editsKey()) wantValidation = false;
+  // A preview queued meanwhile for the same edits and sample line need not validate again.
+  if (pending?.edits === req.edits && pending.sample === req.sample)
+    pending.body.validate = false;
+  renderValidation();
+  const n = failuresOf(result).length;
+  announce(
+    n
+      ? `Validation failed: ${plural(n, "problem")}. The list is under the Validate button.`
+      : `Validation passed: ${plural(result.changed.length, "changed glyph")} checked.`,
+  );
+  if (exportIntent === req.edits) {
+    exportIntent = null;
+    offerExport();
+  }
+}
+// A validation request fails as a whole when the previewed glyph itself cannot be built.
+function validationFailed(e, edits, inputs) {
+  wantValidation = false;
+  validationError = { message: e.message, code: e.code, edits, inputs };
+  renderValidation();
+  announce("Validation could not run: " + e.message);
+  if (exportIntent === edits) {
+    exportIntent = null;
+    const fix = validationFix(validationError);
+    notice("export", "error", "Validation could not run: " + e.message, [
+      ...(fix
+        ? [
+            [
+              fix[0],
+              () => {
+                exportIntent = editsKey();
+                fix[1]();
+              },
+              true,
+            ],
+          ]
+        : []),
+      ["Export anyway", exportPatch],
+    ]);
+  }
+}
+// What to offer when validation could not run: [label, action], or null.
+function validationFix(err) {
+  if (FAMILY_CODES.includes(err.code) && $("family").value !== "P")
+    return [
+      "Validate with the preview in Proportional",
+      () => {
+        $("family").value = "P";
+        previewChanged();
+        schedule(true);
+      },
+    ];
+  if (UNDO_CODES.includes(err.code) && undo.length)
+    return ["Undo the last change", () => $("undo").click()];
+  if (!err.code || TRANSIENT_CODES.includes(err.code))
+    return ["Retry", () => schedule(true)];
+  return null;
+}
+// A validation for the current edits is running, waiting, or about to be queued.
 function validating() {
   const key = editsKey();
-  return [inflight, pending].some((r) => r?.body.validate && r.edits === key);
+  return (
+    wantValidation ||
+    [inflight, pending].some((r) => r?.body.validate && r.edits === key)
+  );
 }
 
 function setPreview(state) {
   // The old "passes" message must not sit next to an outline that is out of date.
   if (state === "stale" && previewState !== "stale")
-    message("Preview out of date — updating…", "progress");
+    message(
+      drag ? "The preview updates when you release the point." : "Updating preview…",
+      "progress",
+    );
   previewState = state;
   $("workspace").dataset.preview = state;
   $("canvas").classList.toggle("stale", state !== "current");
   renderTag();
+  physical();
 }
 function renderTag() {
   const tag = $("preview-tag");
@@ -445,29 +602,37 @@ function renderHandleHelp() {
   if (!selected) return;
   const help = $("handle-help");
   const own = `${selected.char} in ${FAMILY_NAMES[selected.family]}`;
-  if (!selected.handles.length)
-    help.replaceChildren(
-      hiddenReason(selected) +
-        " Edit the exact values below; the preview updates the same way.",
-    );
-  else if (!handlesShown())
-    help.replaceChildren(
-      `Points are hidden because the preview shows ${$("glyph").value || "nothing"} in ${FAMILY_NAMES[$("family").value]}; they belong to ${own}. The fields still work. `,
-      button(
-        `Show ${own}`,
-        () => previewGlyph(selected.char, selected.family),
-        "inline",
-      ),
-    );
-  else
-    help.replaceChildren(
-      "Drag the yellow points or edit exact values. Hover a point to find its fields; hover or focus a field to find its point. Coincident points are separate source coordinates; use the fields to move each one.",
-    );
+  const find = HOVER
+    ? "Hover a point to find its fields; hover or focus a field to find its point."
+    : "Tap a field to find its point.";
+  keepFocus(help, () => {
+    if (!selected.handles.length)
+      help.replaceChildren(
+        hiddenReason(selected) +
+          " Edit the exact values below; the preview updates the same way.",
+      );
+    else if (!handlesShown())
+      help.replaceChildren(
+        `Points are hidden because the preview shows ${$("glyph").value || "nothing"} in ${FAMILY_NAMES[$("family").value]}; they belong to ${own}. The fields still work. `,
+        focusKey(
+          button(
+            `Show ${own}`,
+            () => previewGlyph(selected.char, selected.family),
+            "inline",
+          ),
+          "show",
+        ),
+      );
+    else
+      help.replaceChildren(
+        `Drag the yellow points or edit exact values. ${find} Coincident points are separate source coordinates; use the fields to move each one.`,
+      );
+  });
   renderTag();
 }
 function renderLegend() {
   const used = new Set(
-    selected.slots.map((s) => /^(So|S|D|Rect)\d/.exec(s.label)?.[1]),
+    selected.slots.map((s) => /^(So|S|D|Rect|diagonal)\d/.exec(s.label)?.[1]),
   );
   const names = Object.keys(SHAPES).filter((k) => used.has(k));
   const entries = names.map((k) =>
@@ -479,9 +644,16 @@ function renderLegend() {
     "The number after the letter counts the shapes in reading order: S1 is the first shape on the source line, D3 the third.",
   );
   $("constructors").hidden = !names.length;
-  $("constructors").replaceChildren(...entries, numbering);
+  $("constructors").replaceChildren(node("dl", {}, entries), numbering);
 }
 
+// A shared helper draws the letters its group names: "Shared M / W" draws W as well as M.
+function draws(t, ch) {
+  return (
+    t.char === ch ||
+    (t.group.startsWith("Shared ") && t.group.split(/[\s/]+/).includes(ch))
+  );
+}
 function renderTargets() {
   if (!catalog) return;
   const raw = $("search").value.trim();
@@ -492,25 +664,31 @@ function renderTargets() {
     (t) =>
       !raw ||
       (single
-        ? t.char.toLowerCase() === needle
+        ? t.char.toLowerCase() === needle || draws(t, raw)
         : (t.char + " " + t.group).toLowerCase().includes(needle)),
   );
-  const exact = hits.filter((t) => raw && t.char === raw);
-  const first = exact.length && exact.length < hits.length ? exact : [];
+  // Exact character first, then helpers that draw it, then the rest in catalog order.
+  const rank = (t) => (!raw ? 0 : t.char === raw ? 0 : draws(t, raw) ? 1 : 2);
+  const sorted = hits
+    .map((t, i) => [rank(t), i, t])
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1])
+    .map(([, , t]) => t);
+  const exact = sorted.filter((t) => raw && t.char === raw);
+  const first = exact.length < hits.length ? exact : [];
   const nodes = [];
   const derived = single && catalog.derived?.[raw];
   if (derived) nodes.push(derivedCard(raw, derived));
   if (first.length) nodes.push(groupHeading("Exact match"));
   nodes.push(...first.map(targetButton));
   let group = "";
-  for (const t of hits) {
+  for (const t of sorted) {
     if (first.includes(t)) continue;
     if (group !== t.group) nodes.push(groupHeading((group = t.group)));
     nodes.push(targetButton(t));
   }
   const list = $("targets");
   const scroll = list.scrollTop;
-  list.replaceChildren(...nodes);
+  keepFocus(list, () => list.replaceChildren(...nodes));
   list.scrollTop = scroll;
   const edited = editedTargets().length;
   $("count").textContent =
@@ -542,16 +720,24 @@ function targetButton(t) {
       node("span", { className: "badge", "aria-hidden": "true" }, String(k)),
     );
   if (selected?.id === t.id) b.setAttribute("aria-current", "true");
-  return b;
+  return focusKey(b, "t:" + t.id);
 }
 function derivedCard(ch, d) {
   const buttons = catalog.targets
-    .filter((t) => t.char === d.base)
-    .map((t) => button(`${t.char} · ${t.group}`, () => select(t, ch)));
+    .filter((t) => draws(t, d.base))
+    .map((t) =>
+      focusKey(
+        button(`${t.char} · ${t.group}`, () => select(t, ch)),
+        "d:" + t.id,
+      ),
+    );
   const missing = [];
   for (const m of d.marks) {
     const t = catalog.targets.find((t) => t.group === "Accent " + m);
-    if (t) buttons.push(button(`${m} · accent`, () => select(t, ch)));
+    if (t)
+      buttons.push(
+        focusKey(button(`${m} · accent`, () => select(t, ch)), "d:" + t.id),
+      );
     else missing.push(m);
   }
   return node(
@@ -586,18 +772,24 @@ function select(target, previewChar) {
   previewChanged();
 }
 
+// Named like its fields: "S1 point 3" for "S1 point 3 x" and "y"; a diagonal's end is
+// "diagonal3 x₀, y₀" for the fields "diagonal3 x₀" and "diagonal3 y₀".
 function pointName(h) {
-  return slots[h.x].label.replace(/ x$/, "");
+  const x = slots[h.x].label;
+  return x.endsWith(" x")
+    ? x.slice(0, -2)
+    : `${x}, ${slots[h.y].label.split(" ").pop()}`;
 }
-// Fields that belong to a point: its x, y and corner radius, and a disk's radius.
+// Fields that belong to a point: its x and y, its corner radius, and a disk's radius.
 function buildHandleIndex() {
   handleOf = {};
   for (const h of selected.handles) {
+    handleOf[h.x] = handleOf[h.y] = h;
     const name = pointName(h);
     const shape = name.split(" ")[0];
     for (const s of selected.slots)
       if (
-        s.label.startsWith(name + " ") ||
+        s.label === name + " corner radius" ||
         (/^D\d+$/.test(shape) && s.label === shape + " disk radius")
       )
         handleOf[s.id] = h;
@@ -883,7 +1075,7 @@ function physical() {
   const w = $("line-width").valueAsNumber;
   if (!Number.isFinite(w) || w <= 0) return;
   $("scale").textContent =
-    `At w = ${w.toFixed(2)} mm: cap height ${(14 * w).toFixed(2)} mm · normal stroke ${(2 * w).toFixed(2)} mm${latest ? ` · this glyph ink width ${(latest.width * w).toFixed(2)} mm` : ""}. Screen magnification is arbitrary.`;
+    `At w = ${w.toFixed(2)} mm: cap height ${(14 * w).toFixed(2)} mm · normal stroke ${(2 * w).toFixed(2)} mm${latest && previewState === "current" ? ` · this glyph ink width ${(latest.width * w).toFixed(2)} mm` : ""}. Screen magnification is arbitrary.`;
 }
 function renderChecks(r) {
   const c = r.checks;
@@ -974,19 +1166,53 @@ function renderEditCount() {
 function renderValidation() {
   renderEditCount();
   const box = $("validation");
-  const chips = $("affected");
-  if (!validation) {
-    box.className = "validation-summary";
-    box.replaceChildren(
-      node(
-        "p",
-        { className: "muted" },
-        Object.keys(values).length
-          ? "These edits have not been validated across all families yet. The preview checks one glyph and the sample line; validation checks every changed outline and derived accent in all three families."
-          : "Preview checks one glyph and the sample line. Full validation checks all changed outlines and derived accents across the three families.",
+  keepFocus(box, () => fillValidation(box));
+  if (validation)
+    keepFocus($("affected"), () =>
+      renderChips(
+        validation.result,
+        failuresOf(validation.result),
+        validation.edits !== editsKey(),
       ),
     );
-    chips.replaceChildren();
+  else $("affected").replaceChildren();
+}
+// Why validation could not run for the current edits, and what to do about it.
+function couldNotRun(err) {
+  const fix = validationFix(err);
+  const hint = FAMILY_CODES.includes(err.code)
+    ? "Validation builds the previewed glyph first. Proportional has every character, so validating with the preview in Proportional still checks Tab and Mono."
+    : UNDO_CODES.includes(err.code)
+      ? "Undo or fix the value first: validation needs the previewed glyph to build."
+      : "";
+  return node(
+    "div",
+    { className: "could-not-run" },
+    node("p", { className: "summary-title" }, "Validation could not run."),
+    node("p", {}, err.message),
+    hint && node("p", {}, hint),
+    fix && focusKey(button(fix[0], fix[1], "inline"), "fix"),
+  );
+}
+function fillValidation(box) {
+  const error =
+    validationError?.edits === editsKey() &&
+    validationError.inputs === inputsKey()
+      ? validationError
+      : null;
+  if (!validation) {
+    box.className = "validation-summary" + (error ? " failed" : "");
+    box.replaceChildren(
+      error
+        ? couldNotRun(error)
+        : node(
+            "p",
+            { className: "muted" },
+            Object.keys(values).length
+              ? "These edits have not been validated across all families yet. The preview checks one glyph and the sample line; validation checks every changed outline and derived accent in all three families."
+              : "Preview checks one glyph and the sample line. Full validation checks all changed outlines and derived accents across the three families.",
+          ),
+    );
     return;
   }
   const r = validation.result;
@@ -1002,7 +1228,7 @@ function renderValidation() {
       oldEdits
         ? "Results for earlier edits — revalidate. "
         : `Results for earlier settings — revalidate. The sample-line check used “${text}” in ${FAMILY_NAMES[family]}. `,
-      button("Revalidate", () => schedule(true), "inline"),
+      focusKey(button("Revalidate", () => schedule(true), "inline"), "revalidate"),
     );
   const glyphs = plural(r.changed.length, "changed glyph");
   const outcome = fails.length
@@ -1041,10 +1267,11 @@ function renderValidation() {
   );
   box.className =
     "validation-summary " +
-    (fails.length ? "failed" : "passed") +
+    (fails.length || error ? "failed" : "passed") +
     (staleNote ? " stale" : "");
-  box.replaceChildren(...kids(staleNote, outcome, fillWarning, thickness));
-  renderChips(r, fails, oldEdits);
+  box.replaceChildren(
+    ...kids(error && couldNotRun(error), staleNote, outcome, fillWarning, thickness),
+  );
 }
 // Long lists fold after the first few so the block stays readable.
 function failureList(fails, shown = 8) {
@@ -1115,6 +1342,7 @@ function renderChips(r, fails, old) {
         className: "affected " + kind,
         title: `${reason} Select to preview ${name}.`,
         "aria-label": `${name}: ${reason}`,
+        "data-focus": "c:" + name,
         onclick: () => previewGlyph(g.char, g.family),
       },
       kind === "gone"
@@ -1215,6 +1443,7 @@ function endDrag() {
   renderLink();
   renderTag();
   if (!moved) return;
+  message("Updating preview…", "progress");
   changed();
   schedule();
 }
@@ -1379,7 +1608,7 @@ $("file").onchange = async () => {
     try {
       await post("/api/export", { session: s });
     } catch (e) {
-      e.message += commitHint(s);
+      e.message += commitHint(s, e.message);
       throw e;
     }
     if (revision !== before)
@@ -1428,6 +1657,15 @@ window.addEventListener("storage", (e) => {
     ],
     false,
   );
+});
+// Autosave keeps edits across a reload, except while paused by a conflict: then edits made
+// here exist only in this page, and leaving it should ask first.
+window.addEventListener("beforeunload", (e) => {
+  if (!conflict) return;
+  const saved = parseSession(localStorage.getItem(STORAGE));
+  if (editsKey(edits(saved?.values)) === editsKey()) return;
+  e.preventDefault();
+  e.returnValue = "";
 });
 async function loadOtherTab() {
   const s = parseSession(localStorage.getItem(STORAGE));
@@ -1481,7 +1719,7 @@ async function restore() {
     notice(
       "restore",
       "warn",
-      `Your autosaved edits could not be loaded: ${e.message}${commitHint(saved)} They were downloaded as fillaprint-previous-session.json, so nothing is lost; this checkout starts without them.`,
+      `Your autosaved edits could not be loaded: ${e.message}${commitHint(saved, e.message)} They were downloaded as fillaprint-previous-session.json, so nothing is lost; this checkout starts without them.`,
     );
     return 0;
   }

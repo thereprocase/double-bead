@@ -51,7 +51,7 @@
             placeholder="a, capitals, accent…"
           />
           <p class="muted" id="count">Loading source parameters…</p>
-          <div id="targets" aria-label="Glyph constructions"></div>
+          <div id="targets" aria-label="Glyph constructions" tabindex="-1"></div>
         </aside>
         <section class="workspace" id="workspace" data-preview="stale">
           <div class="toolbar">
@@ -102,13 +102,22 @@
               aria-label="Glyph geometry with draggable construction points; each point's fields are under Parameters"
             ></svg>
             <div class="legend">
-              <span class="before-dot"></span> Original
-              <span class="after-dot"></span> Edited
-              <span class="handle-dot"></span> Construction point · hover
-              for its name
+              <span class="key"><span class="swatch before-dot"></span>Original</span>
+              <span class="key"><span class="swatch after-dot"></span>Edited</span>
+              <span class="key"
+                ><span class="swatch handle-dot"></span>Construction point<span
+                  class="hover-only"
+                >
+                  · hover for its name</span
+                ></span
+              >
             </div>
           </div>
-          <div id="status" role="status">Choose a glyph construction.</div>
+          <div class="status-line">
+            <div id="status" role="status">Choose a glyph construction.</div>
+            <span id="elapsed" aria-hidden="true"></span>
+          </div>
+          <div id="announce" class="visually-hidden" role="status"></div>
           <div class="readouts" id="readouts"></div>
           <div class="preview">
             <label for="text">In context · actual source spacing</label
@@ -130,7 +139,7 @@
                 families.
               </p>
             </div>
-            <div id="affected"></div>
+            <div id="affected" tabindex="-1"></div>
           </div>
           <p class="footnote">
             Stroke width stays 2w. Coordinates and radii are in extrusion
@@ -144,8 +153,8 @@
             <button id="reset">Reset glyph</button>
           </div>
           <p id="source" class="muted"></p>
-          <p id="handle-help" class="muted"></p>
-          <dl id="constructors" class="constructors" hidden></dl>
+          <p id="handle-help" class="muted" tabindex="-1"></p>
+          <div id="constructors" class="constructors" hidden></div>
           <div id="controls"></div>
           <p class="muted">
             Changes to shared bases or marks also affect derived glyphs.

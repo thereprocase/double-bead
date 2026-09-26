@@ -146,6 +146,18 @@ button.primary:disabled {
 header :focus-visible {
   outline-color: #fff;
 }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* Lists that take focus back after a rebuild; the focused control inside shows the ring. */
+[tabindex="-1"]:focus {
+  outline: none;
+}
 code {
   font: 0.92em var(--font-mono);
   padding: 0 3px;
@@ -441,17 +453,29 @@ aside {
 }
 .legend {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 4px 14px;
   align-items: center;
   padding: 10px 12px;
   font: 10px var(--font-mono);
   border-top: 1px solid var(--gl-soft-rule);
   background: var(--gl-light);
 }
-.legend span {
+/* A swatch stays on the same line as its label when the legend wraps. */
+.legend .key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.legend .swatch {
   width: 8px;
   height: 8px;
-  margin-left: 8px;
+}
+@media (hover: none) {
+  .hover-only {
+    display: none;
+  }
 }
 .before-dot {
   background: var(--gl-cyan);
@@ -462,11 +486,25 @@ aside {
 .handle-dot {
   background: var(--gl-amber);
 }
+.status-line {
+  display: flex;
+  align-items: baseline;
+  gap: 4px 12px;
+  flex-wrap: wrap;
+}
 #status {
+  flex: 1 1 280px;
   font: 12px/1.5 var(--font-ui);
   padding: 10px 0;
   min-height: 38px;
   color: var(--gl-green);
+}
+#elapsed {
+  font: 11px/1.5 var(--font-mono);
+  color: #5f5f5f;
+}
+#elapsed:empty {
+  display: none;
 }
 #status.progress {
   color: #3d3d3d;
@@ -488,7 +526,8 @@ aside {
   opacity: 0.3;
 }
 .workspace:not([data-preview="current"]) .readouts,
-.workspace:not([data-preview="current"]) #text-preview {
+.workspace:not([data-preview="current"]) #text-preview,
+.workspace:not([data-preview="current"]) #scale {
   opacity: 0.45;
 }
 .workspace:not([data-preview="current"]) .handle-hit {
@@ -601,6 +640,9 @@ aside {
   cursor: pointer;
   font-weight: 600;
 }
+.could-not-run {
+  margin-bottom: 8px;
+}
 .stale-note {
   padding: 6px 8px;
   border: 1px dashed var(--gl-rule);
@@ -694,7 +736,10 @@ h2 {
   font-size: 11.5px;
   line-height: 1.45;
 }
-.constructors div {
+.constructors dl {
+  margin: 0;
+}
+.constructors dl > div {
   display: grid;
   grid-template-columns: 34px 1fr;
   gap: 6px;
@@ -808,7 +853,7 @@ footer > span:last-child {
   }
   .legend {
     font-size: 9px;
-    gap: 5px;
+    gap: 4px 10px;
   }
   #targets {
     grid-template-columns: repeat(2, 1fr);
@@ -912,11 +957,10 @@ footer > span:last-child {
   }
   .legend {
     font-size: 9px;
-    gap: 5px;
-    flex-wrap: wrap;
+    gap: 4px 10px;
   }
-  .legend span {
-    margin-left: 3px;
+  .legend .key {
+    gap: 4px;
   }
   .pane-title {
     font-size: 10px;
