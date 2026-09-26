@@ -54,6 +54,10 @@ def _assemble(base, anchors=None, caron_above=False):
     return fin, inputs
 
 
+# Every builder from here to finish_inputs is cached, in layers: full_p reads _assembled_p, which holds
+# the finished glyphs, so clearing full_p alone rebuilds nothing. cache_clear() clears them all, for a
+# caller that patches finish or a constructor and wants the families rebuilt with it.
+
 @lru_cache(maxsize=None)
 def raw_p():
     """Proportional base geometry before finishing. The result is cached and shared, so it is read-only;
@@ -143,6 +147,15 @@ def finish_inputs():
     fams["T"] = {**fams["P"], "1": _tabular_one()}
     fams["M"] = {c: m[c] for c in full_m()}
     return MappingProxyType({k: MappingProxyType(v) for k, v in fams.items()})
+
+
+def cache_clear():
+    """Clear every cache in this module, hidden layers included, so the next family build runs finishing
+    and composition again. Found by attribute, so a cache added later is cleared too. The spec sets in
+    glyphs (set_p, set_m, set_mixed; raw_m reads set_m) keep their own caches."""
+    for f in list(globals().values()):
+        if getattr(f, "__module__", None) == __name__ and callable(getattr(f, "cache_clear", None)):
+            f.cache_clear()
 
 
 def glyph_name(ch):
