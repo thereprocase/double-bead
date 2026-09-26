@@ -82,7 +82,11 @@ def raw_m():
     over it, the narrowed forms of glyphs too wide for the cell, the shared w and the Mono-only glyphs."""
     base = dict(raw_p())
     for c, g in spec.set_m().items():
-        base[c] = g.geom
+        # The spec set's J " - . / are soft-filtered copies of glyphs._raw_extension, a duplicate of
+        # latin's J and symbols that the tuner does not catalog; P's raw shapes keep Mono's identical
+        # to the other families', so an edit to them reaches all three.
+        if c not in spec.EXTENSION:
+            base[c] = g.geom
     base.update(latin.mono_narrow())                 # r12
     base["w"] = latin.square_w()
     base.update(latin.mono_extras())

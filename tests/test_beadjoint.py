@@ -111,6 +111,12 @@ class Construction(unittest.TestCase):
         for c, g in latin.mono_extras().items():
             self.assertTrue(charset.raw_m()[c].equals_exact(g, 0), c)
 
+    def test_mono_shares_p_shapes(self):
+        # Mono once took J " - . / from the spec set's uncataloged duplicates, so tuner edits to
+        # them (and to the ' tick " shares) changed P and Tab but not Mono.
+        for c in spec.EXTENSION + "'":
+            self.assertTrue(full_m()[c].geom.equals_exact(full_p()[c].geom, 0), c)
+
 
 class HardRules(unittest.TestCase):
     """No thin ink, no thin enclosed holes, separate pieces >= 1.98 w, in every glyph of every set."""
