@@ -40,28 +40,33 @@ The repository keeps Python sources with LF line endings on every platform
 refuses to start on a checkout with Windows (CRLF) line endings and prints the
 command that checks the sources out again.
 
-Expect these waits, measured on a 2019 laptop: about 8 s for the first preview
-after starting the tuner, 1.5 to 2 s for later previews, about 5 s for the first
-preview in another family, and about 6 s for all-family validation. Slower
-machines take proportionally longer. The status line counts seconds while it
-works, and repeated states (undo, redo, switching back) come from a cache.
+Expect roughly these waits on a typical laptop: 8 to 12 s for the first preview
+after starting the tuner, 1.5 to 3.5 s for later previews, a few seconds more for
+the first preview in another family, and 5 to 30 s for all-family validation,
+depending on how many glyphs the edit changes. A counter next to the status line
+shows the seconds while it works, and repeated states (undo, redo, switching
+back) come from a cache.
 
 ## Tune
 
-1. Select a construction in the left rail. The initial catalog exposes **185
-   constructions and 1,938 numeric parameters**, including base letters,
-   capitals, symbols, Mono variants, accents, and the shared dot radius. Search
-   by character or group name; exact character matches come first. Accented
-   characters have no construction of their own: searching `ñ` explains that it
-   is built from `n` + tilde and offers both constructions, previewing `ñ`.
+1. Select a construction in the left rail. The catalog exposes
+   **COUNT_CONSTRUCTIONS constructions and COUNT_PARAMETERS numeric
+   parameters**, including base letters, capitals, symbols, Mono variants,
+   accents, and the shared dot radius. Search by character or group name; exact
+   character matches come first, and a letter drawn by a shared helper finds it
+   too (`W` finds the Shared M / W construction). Accented characters have no
+   construction of their own: searching `ñ` explains that it is built from `n` +
+   tilde and offers both constructions, previewing `ñ`.
 2. Drag the yellow construction points or edit exact numbers in the right rail.
-   Hovering a point names it the way the fields do (`S1 point 3`) and highlights
-   its fields; hovering or focusing a field highlights its point. The grid is
-   numbered every 2w. Coordinates use `w` units and Y points down; a normal
-   stroke stays **2w** wide. A short legend above the fields explains the
-   constructors: `S` is an open stroke through its points, `So` a closed stroke,
-   `D` a disk, and `Rect` a rectangle. Their numbers count shapes in reading
-   order on the source line.
+   Hovering a point names it the way the fields do (`S1 point 3`, or
+   `diagonal3 x₀, y₀` for the end of a diagonal) and highlights its fields;
+   hovering or focusing a field highlights its point. On a touch screen, tap a
+   field to find its point. The grid is numbered every 2w. Coordinates use `w`
+   units and Y points down; a normal stroke stays **2w** wide. A short legend
+   above the fields explains the constructors: `S` is an open stroke through its
+   points, `So` a closed stroke, `D` a disk, `Rect` a rectangle, and `diagonal` a
+   straight stroke between two points cut flat on the cap line and baseline.
+   Their numbers count shapes in reading order on the source line.
 3. Coordinates accept -32 to 32w and radii 0 to 8w (wider where the source
    value already is). A value outside the range, or an emptied field, is put
    back to the current value with a message on that row.
@@ -80,11 +85,16 @@ works, and repeated states (undo, redo, switching back) come from a cache.
    `M:n dropped from Mono`), amber for a fill warning, green for a pass. Select a
    chip to preview that glyph. Results stay visible when you change the preview
    or edit, marked as results for earlier settings or edits until you
-   revalidate; undoing back to the validated edits clears the mark.
-7. Export a Git patch. If the current edits have not been validated, or
-   validation found problems, the page says so and offers **Validate now** or
-   **Export anyway** instead of downloading. The browser saves
-   `fillaprint-glyphs.patch` in its download folder.
+   revalidate; undoing back to the validated edits clears the mark. Validation
+   builds the previewed glyph first. When that glyph cannot be built, the block
+   says **Validation could not run** with the reason, and offers **Validate with
+   the preview in Proportional** (Proportional has every character, and Tab and
+   Mono are still checked) or **Undo the last change**.
+7. Export a Git patch. If the current edits have not been validated, the page
+   says so and offers **Validate now** or **Export anyway** instead of
+   downloading; if validation found problems, it offers **Show the problems** or
+   **Export anyway**. The browser saves `fillaprint-glyphs.patch` in its
+   download folder.
 
 Undo, redo, and reset are available. **Save session** writes a JSON file to share
 or resume the parameter choices, and **Open session** reads one back. Opening a
@@ -100,10 +110,12 @@ The browser also autosaves the edits. Autosave belongs to one browser and one
 exact address: `http://127.0.0.1:8766`, `http://localhost:8766`, and another
 port each keep separate edits. After a reload, restored edits are announced,
 the first edited construction is selected, and edited constructions carry a
-badge in the left rail. Closing the tab does not ask for confirmation, because
-nothing is lost. If another tuner tab changes the autosaved edits, this tab stops
-autosaving and asks whether to load the other tab's edits or keep its own. If the
-autosaved edits belong to different source files, they are downloaded as
+badge in the left rail. Closing or reloading the tab does not ask for
+confirmation, because autosave keeps the edits. If another tuner tab changes the
+autosaved edits, this tab stops autosaving and asks whether to load the other
+tab's edits or keep its own; until you choose, edits made in this tab exist only
+in the page, and the browser asks before you leave it. If the autosaved edits
+belong to different source files, they are downloaded as
 `fillaprint-previous-session.json` and the tuner starts without them.
 
 The server never edits your source files. Sessions contain source SHA-256 hashes
@@ -124,17 +136,29 @@ tagged **Stale** or **Failed**, and dragging pauses until the preview is current
 
 ## Messages
 
-- *Can't reach the tuner server*: the `python -m tuner.serve` process stopped.
-  Start it again and reload; autosave keeps the edits.
-- *Reload the local tuner page*: the server restarted. Reload; autosave keeps
-  the edits.
-- *Sources changed on disk*: Python files changed after the tuner started, for
-  example by `git apply`. Restart the tuner.
-- *Another tuner tab is computing — retrying…*: the server computes one preview
-  at a time. The page retries for about a minute, then offers **Retry**.
-- *That file is not a tuner session*: the opened file is not a session JSON.
-- *Session belongs to different source files*: open it in the checkout it was
-  saved from, or apply and rebase its patch.
+- *Can't reach the tuner server — is python -m tuner.serve still running?* The
+  server process stopped. Start it again and select **Retry**, or reload; autosave
+  keeps the edits.
+- *Reload the local tuner page.* The server restarted. Select **Reload page**;
+  autosave keeps the edits.
+- *The glyph source files changed on disk since the tuner started. Restart the
+  tuner to load them.* Python files changed after the tuner started, for example
+  by `git apply`. Stop the tuner, start it again, then select **Reload page**.
+- *Another tuner tab is computing (or this page before a reload) — retrying…*
+  The server computes one preview at a time. The page retries for about a
+  minute, then offers **Retry**.
+- *Mono leaves out n: after this edit its ink is wider than Mono's 10w limit.
+  Narrow the glyph, or undo the last change.* The edit made the previewed glyph
+  too wide for Mono. Select **Undo** or **Preview in Proportional**.
+- Messages that name a construction and a problem, such as *n (Base): the
+  rounded corners at (1, 1) and (6, 1) together need 9w of a segment only 5w
+  long*, or *the edit leaves no valid outline*, come from values the geometry
+  cannot use. Select **Undo** or change the value.
+- *That file is not a tuner session.* The opened file is not a session JSON.
+- *This session was saved for different glyph source files than this checkout
+  has.* When the session records its commit, the message gives the command to
+  check that commit out (`git switch --detach` followed by the commit), after
+  which you restart the tuner.
 
 ## Contribute
 
@@ -188,11 +212,12 @@ the acceptance gate.
 ## Scope
 
 This first version adjusts existing numeric coordinates and radii written
-directly in `S`, `So`, `D`, and `Rect` calls inside the cataloged construction
-functions, plus the shared dot radius. Numbers that reach a glyph through other
-code are not exposed: arguments to helper transforms such as shift, mirror,
-rotate, and spokes, the accent anchor and placement tables, the internals of mark
-helpers such as the cedilla and ogonek, and other named constants. The right
+directly in `S`, `So`, `D`, `Rect`, and `diagonal` calls inside the cataloged
+construction functions, plus the shared dot radius. Numbers that reach a glyph
+through other code are not exposed: arguments to helper transforms such as
+shift, mirror, rotate, and spokes, the accent anchor and placement tables, the
+internals of mark helpers such as the cedilla and ogonek, and other named
+constants. The right
 rail says when a construction passes through helper transforms, and a search
 for an accented character names any mark drawn by such a helper. Adding or
 removing strokes, changing endpoint types, new character
