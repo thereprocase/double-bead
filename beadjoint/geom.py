@@ -35,6 +35,10 @@ def fillet(a, p, b, r):
 
     Returns (points from the a-side tangent point to the b-side one, tangent length t).
     r = 0 keeps the sharp vertex (the stroke then gets a mitre join there)."""
+    # A neighbour on top of p leaves no direction to fillet along (the tuner can drag one point onto
+    # the next); name the point instead of dividing by zero.
+    if math.dist(a, p) < 1e-12 or math.dist(b, p) < 1e-12:
+        raise ValueError(f"stroke point {tuple(p)} coincides with its neighbour; consecutive points must differ")
     ux, uy = _unit(a[0] - p[0], a[1] - p[1])
     vx, vy = _unit(b[0] - p[0], b[1] - p[1])
     theta = math.acos(max(-1.0, min(1.0, ux * vx + uy * vy)))

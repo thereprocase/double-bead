@@ -23,7 +23,7 @@ from shapely import affinity  # noqa: E402
 from beadjoint import charset, geom, marks  # noqa: E402
 from beadjoint import glyphs as spec  # noqa: E402
 from beadjoint.charset import CHARS, full_m, full_mixed, full_p, glyph_name  # noqa: E402
-from beadjoint.geom import DOT, S, fillet, soft  # noqa: E402
+from beadjoint.geom import DOT, S, So, fillet, soft  # noqa: E402
 from beadjoint.glyphs import FIGURES, pieces  # noqa: E402
 from beadjoint.readback import FontReader  # noqa: E402
 from beadjoint.setting import CELL_F, CELL_M, kerned, mixed, tabular  # noqa: E402
@@ -68,6 +68,15 @@ class Geometry(unittest.TestCase):
             self.assertEqual(fillet(a, p, b, 1), ([p], 0.0))
         g = S((0, 0), (2, 2, 1), (4, 4))
         self.assertAlmostEqual(g.area, 2 * math.hypot(4, 4), places=6)
+
+    def test_coincident_points_are_named(self):
+        cases = {"(0.0, 0.0)": lambda: S((0, 0), (0, 0, 1), (4, 4)),
+                 "(2.0, 2.0)": lambda: S((0, 0), (2, 2, 0), (2, 2)),
+                 "(4.0, 0.0)": lambda: So((0, 0), (4, 0), (4, 0), (0, 4))}
+        for point, build in cases.items():
+            with self.assertRaises(ValueError) as caught:
+                build()
+            self.assertIn(point, str(caught.exception))
 
     def test_straight_stroke_is_two_wide(self):
         r = check_glyph(soft(S((0, 0), (0, 10))))
