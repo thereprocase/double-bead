@@ -91,16 +91,23 @@ def decompose(ch):
     return base, marks
 
 
+BELOW_MARKS = ("cedilla", "ogonek", "commabelow")
+DOTLESS = {"i": "ı", "j": "ȷ"}
+
+
+def mark_base(base_char, marks):
+    """The base character compose() draws on: i and j lose their dot under any mark above (í is
+    ı + acute); cedilla, ogonek and comma below are not above, so į keeps its dot."""
+    if any(m not in BELOW_MARKS for m in marks):
+        return DOTLESS.get(base_char, base_char)
+    return base_char
+
+
 def compose(ch, base_char, marks, bases, anchors=None, caron_above=False):
     """Geometry of ch from base glyphs (dict char -> geometry); anchors override a base's mark x;
     caron_above draws ď ť with a real caron over the letter (the monospace cell has no room for the
     apostrophe form)."""
-    b = base_char
-    above = [m for m in marks if m not in ("cedilla", "ogonek", "commabelow")]
-    if above and b == "i":
-        b = "ı"
-    if above and b == "j":
-        b = "ȷ"
+    b = mark_base(base_char, marks)
     g = bases[b]
     x0, y0, x1, y1 = g.bounds
     cx = (x0 + x1) / 2

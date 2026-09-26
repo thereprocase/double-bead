@@ -13,6 +13,7 @@ import math
 from shapely import affinity
 from shapely.ops import unary_union
 
+from . import glyphs as spec
 from .geom import BALL as B, D, DOT, Rect, S, So, rotate180, solve
 
 
@@ -296,13 +297,36 @@ def specials(p, cap, sym):
     x["ƒ"] = S((7, -3, B), (4.5, -3, 2), (2.5, 13, 2), (0, 13, B)) | S((1.5, 1), (6.5, 1))         # r12: slanted stem
     # r12: capital sharp s: sharp top right, diagonal to a rounded U-turn at mid height, tail ball 2 w off the stem
     x["ẞ"] = S((1, 10), (1, -3, 2), (7.5, -3, 0.5), (3.8, 2.5, 1.3), (8, 2.5, 1.5), (8, 9, 2), (5, 9, B))
-    x["ĳ"] = p["i"] | shift(p["j"], 1)
+    # The 3w dots (R11) set the spacing: i's spans x 0..3 and j's 2.5..5.5, so j moves 2.5 for a 2w gap
+    # between them (the stems end up 3w apart), as close as typed "ij" (2.52). At 1 the dots overlapped and
+    # the stems stood 1.5w apart, and finishing filled both into one 5.5w slab.
+    x["ĳ"] = p["i"] | shift(p["j"], 2.5)
     x["Ĳ"] = cap["I"] | shift(cap["J"], 8)
     x["ª"] = shift(p["a"], 0, -4)
     x["º"] = shift(p["o"], 0, -4)
     x["™"] = shift(S((0, 1), (6, 1)) | S((3, 1), (3, 10)), 0, -4) \
         | shift(S((1, 10), (1, 1, 0), (9, 1, 0), (9, 10)) | S((5, 1), (5, 7, B)), 8, -4)
     return x
+
+
+def extras():
+    """Spacing cedilla and ogonek, and ŉ: the ’ head before P's n."""
+    x = {}
+    x["¸"] = S((3, 11), (3, 13), (1, 13, B))
+    x["˛"] = S((1, 11), (1, 13), (3.5, 13, B))
+    x["ŉ"] = D((1.7, -2.6), 1.4) | S((1.7, -2.6), (0.7, 0.4, B)) | shift(spec._raw_p()["n"], 4.4)
+    return x
+
+
+def mono_extras():
+    """Mono-only glyphs: the dotless ı and ȷ that Mono's accented i and j are built on (Mono's i and j
+    without their dots), and an ellipsis that fits the 10w cell."""
+    m = {}
+    m["ı"] = S((2, 1, B), (4.5, 1, 0), (4.5, 9)) | S((1, 9), (8, 9))
+    m["ȷ"] = S((3, 1, B), (6, 1, 0), (6, 13), (1, 13, B))
+    # Three DOT-size dots with 2w gaps need 13w of ink, past the 10w cell; mono keeps 2w dots here.
+    m["…"] = D((1, 9)) | D((5, 9)) | D((9, 9))
+    return m
 
 
 def mono_narrow():

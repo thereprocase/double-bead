@@ -74,7 +74,7 @@ main { display: grid; gap: 20px; padding-block: 24px 64px; }
 .tester-controls input[type="text"], .tester-controls select, .glyph-tools input {
   font: 15px "Segoe UI", system-ui, sans-serif; padding: 8px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--ground); color: var(--text); min-width: 0; }
 .plate { background: var(--body); color: var(--ink); border-radius: 6px; padding: 24px; overflow-wrap: anywhere;
-  font-family: "FillaprintTab", monospace; line-height: 1.25; min-height: 120px; }
+  font-family: "FillaprintTab", monospace; line-height: 1.4; min-height: 120px; }   /* 1.4 em = 28w, the fonts' own line pitch */
 
 .glyph-tools { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin-bottom: 14px; }
 .glyph-tools input { width: min(320px, 100%); }

@@ -36,7 +36,8 @@
       ["Font size", 20 * u / PT, "pt", "same em in points", false],
       ["Stroke", 2 * u, "mm", "two beads", false],
       ["x-height", 10 * u, "mm", "lowercase body", false],
-      ["Line pitch", 20 * u, "mm", "baseline to baseline", false],
+      ["Line pitch", 28 * u, "mm", "baseline to baseline, the fonts' default", false],
+      ["Line pitch, comma-below letters", 30.6 * u, "mm", "when ș ț ķ ļ ņ sit above accented capitals such as Å Ă Á Š", false],
     ];
     $("calc-out").innerHTML = rows.map(([t, v, unit, s, key]) =>
       `<div class="${key ? "key" : ""}"><dt>${t}</dt><dd>${v.toFixed(unit === "pt" ? 1 : 2)} ${unit}<small>${s}</small></dd></div>`).join("");
