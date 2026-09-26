@@ -640,6 +640,8 @@ class WorkerRuns(unittest.TestCase):
         self.session["values"][target(".", "Global dot radius")["slots"][0]["id"]] = 0
         result = self.run_ok("P", "a", "a.", True)
         failures = {(f["family"], f["char"], f["code"]): f["message"] for f in result["failures"]}
+        # Every emptied glyph is reported, not only the first one validation reaches.
+        self.assertLessEqual({("P", c, "checks") for c in ".:·…"}, set(failures))
         self.assertEqual(failures["P", ".", "checks"], "Proportional .: the edit leaves no ink to print.")
         self.assertEqual(failures["M", ".", "disappeared"], "Mono leaves out .: after this edit it has no ink to print.")
         self.assertEqual(len(result["text_paths"]), 1, "the empty period is left out of the preview line")
