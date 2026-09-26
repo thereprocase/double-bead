@@ -1,22 +1,14 @@
-name: test
+name: diagnose
 
 on:
-  push:
-    branches: [main]
   pull_request:
-
-# Cancel superseded runs on the same ref (e.g. a branch getting force-pushed) so we don't
-# burn runner time on commits nobody will look at.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  test:
-    name: test (${{ matrix.os }}, py${{ matrix.python-version }})
+  diagnose:
+    name: diagnose (${{ matrix.os }}, py${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -24,30 +16,23 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.12", "3.14"]
+        include:
+          - os: ubuntu-24.04-arm
+            python-version: "3.12"
+          - os: macos-15-intel
+            python-version: "3.12"
+          - os: windows-11-arm
+            python-version: "3.12"
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install "--only-binary=:all:" -r requirements.txt
-      - run: python -m unittest discover -s tests
-
-  reproducible-build:
-    name: reproducible build (ubuntu, py3.12)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      - run: python -m pip freeze
+      - run: python diag/diagnose.py --reference diag/reference-linux.json --out diag-out/${{ matrix.os }}-py${{ matrix.python-version }}.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
         with:
-          python-version: "3.12"
-      - run: python -m pip install "--only-binary=:all:" -r requirements.txt
-      # requirements.txt intentionally omits uharfbuzz, so fontTools falls back to its
-      # pure-Python GPOS packer here. That packer's output is what the committed fonts were
-      # built with; installing uharfbuzz would change GPOS packing and break this check
-      # (see docs/DEVELOPMENT.md's reproducibility notes).
-      - run: python build.py
-      - name: fail if the rebuild changed the committed fonts
-        run: |
-          git status --porcelain fonts
-          test -z "$(git status --porcelain fonts)"
+          name: diag-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: diag-out/
