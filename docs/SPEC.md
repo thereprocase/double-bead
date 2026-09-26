@@ -214,7 +214,8 @@ GAPMIN = 2.02    # hard true-distance floor: R9's 2.0 + 0.02 for outlines rounde
 WORD   = 5.5     # word space, between word-space edges
 WORD_FLOOR = 3.5 # true distance from a word to the whole previous word
 CELL_M = 12      # monospace advance: ink ≤ width(m) = 10 leaves 2.00 between cells
-CELL_F = 9       # tabular figure advance: digits ≤ 7.02 leave 1.98 (7 today: 2.00)
+CELL_F = 9       # tabular figure advance
+FIGURE_MAX = 7.02  # CELL_F − 1.98: digits up to this wide leave 1.98 (7 today: 2.00)
 ```
 
 GAPMIN's 0.02 lets a TTF, whose outlines are rounded to 1/50 w, still pass the 1.98 line

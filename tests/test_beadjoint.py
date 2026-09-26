@@ -24,7 +24,7 @@ from beadjoint.charset import CHARS, full_m, full_mixed, full_p, glyph_name  # n
 from beadjoint.geom import DOT, S, So, fillet, soft  # noqa: E402
 from beadjoint.glyphs import FIGURES  # noqa: E402
 from beadjoint.readback import FontReader  # noqa: E402
-from beadjoint.setting import CELL_F, CELL_M, kerned, mixed, tabular  # noqa: E402
+from beadjoint.setting import CELL_F, CELL_M, FIGURE_MAX, kerned, mixed, tabular  # noqa: E402
 from beadjoint.verify import (FUSED_BY_DESIGN, LINE_MIN, MAX_T, SHIPPED_MAX_T, check_glyph, fused_pieces,  # noqa: E402
                               is_dot, line_gaps, piece_gap, piece_thickness)
 
@@ -227,11 +227,12 @@ class Setting(unittest.TestCase):
         self.assertTrue(all(abs(s % 12) < 1e-6 or abs(s % 12 - 12) < 1e-6 for s in steps) or len(line) == 4)
 
     def test_cells_clear_the_line_check(self):
-        # Centred in their cells, the two widest glyphs sit cell - width apart: the cells leave
-        # 2.00w (Mono) and 2.00w (Tab digits; 1.98w at the tuner's 7.02w budget), not GAPMIN.
+        # Centred in their cells, two neighbours sit cell - width apart at worst: every glyph within its
+        # cell's budget keeps the 1.98 line check (Mono 2.00w today, Tab digits 2.00w; not GAPMIN).
+        self.assertEqual(FIGURE_MAX, CELL_F - LINE_MIN)
+        for c in FIGURES:
+            self.assertLessEqual(full_mixed()[c].width, FIGURE_MAX, c)
         self.assertGreaterEqual(CELL_M - max(g.width for g in full_m().values()), LINE_MIN)
-        self.assertGreaterEqual(CELL_F - max(full_mixed()[c].width for c in FIGURES), LINE_MIN)
-        self.assertGreaterEqual(CELL_F - 7.02, LINE_MIN - 1e-9)
 
 
 class LineSpacing(unittest.TestCase):
