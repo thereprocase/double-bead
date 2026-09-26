@@ -99,7 +99,7 @@ python demo/demo_plate.py                  # slice demo/slice with demo/profiles
 python demo/demo_check.py                  # score it; writes demo/check.json
 demo/tune.sh classic wall_generator=classic   # slice + score one override set
 demo/tune_all.sh                           # a batch of wall variants, then rank them
-demo/tune_all2.sh                          # follow-up: min_bead_width x wall_transition_angle grid
+demo/tune_all2.sh                          # follow-up: bead-width steps at angle=30, plus two angle comparisons
 ```
 
 `demo/slicer_support.py` holds the 3MF writing, OrcaSlicer lookup and gcode parsing.
