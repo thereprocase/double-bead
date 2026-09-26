@@ -30,6 +30,10 @@ Nothing else needs to change: `beadjoint/fontfile.py`, `tools/package_release.py
   body). Keep the `Internal OpenType version: **<VERSION>**` line, and the
   `Download **<ZIP_STEM>.zip**` line, in that format: both are conventions readers and
   tooling rely on.
+  `tests/test_release.py`'s `ReleaseNotes` check fails on purpose (message: "rewrite
+  RELEASE_NOTES.md for the current release — see docs/RELEASING.md") until this line and
+  the download name here match the just-bumped `VERSION`/`ZIP_STEM` — that failure *is* this
+  checklist step; do not silence it by loosening the check.
 
 ## 3. Rebuild the fonts in a fresh pinned environment
 
@@ -109,8 +113,10 @@ synced from). After pushing the release commit and tag here:
 
 - [ ] `beadjoint/release.py`: VERSION, RELEASE, BUILD_DATE bumped together
 - [ ] CHANGELOG.md: top heading renamed to the shipping release
-- [ ] RELEASE_NOTES.md: rewritten for this release only
-- [ ] Fresh pinned rebuild: `build.py` and `python -m unittest discover -s tests` pass
+- [ ] RELEASE_NOTES.md: rewritten for this release only (`tests/test_release.py`'s
+      `ReleaseNotes` check passes — it fails on purpose until this is done)
+- [ ] Fresh pinned rebuild: `build.py` and `python -m unittest discover -s tests` pass, with
+      zero failures (not even the expected `ReleaseNotes` one — see the line above)
 - [ ] `git status --short fonts/` reviewed (empty, or the diff is expected and explained)
 - [ ] Fonts + release.py + CHANGELOG/RELEASE_NOTES committed together
 - [ ] `tools/package_release.py --out dist/` run; hash recorded
