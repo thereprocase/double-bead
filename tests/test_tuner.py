@@ -34,6 +34,11 @@ from tuner.worker import (CACHE_ENV, CACHE_SECRET_ENV, Beadjoint, FinishedCache,
 
 HEX = "0123456789abcdef0123456789abcdef01234567"
 TEST_SECRET = "5e" * 32     # a fixed per-test-run cache secret; the server draws a random one
+# Child processes exchange text as UTF-8 and have a deadline. Text pipes default to the ANSI code page
+# on Windows (cp1252 has no Ĳ), and on Python 3.14 an encoding error there kills the thread feeding
+# stdin, so the child waits for input until the job is cancelled. Child Pythons are told to write UTF-8.
+CHILD_TIMEOUT = 120     # s; these children take seconds, the limit turns a hang into a failure
+UTF8_ENV = {**os.environ, "PYTHONIOENCODING": "utf-8"}
 
 
 @functools.cache
@@ -70,14 +75,15 @@ def worker_env(directory=None):
 
 
 def run_worker(request, env=None, timeout=300):
-    process = subprocess.run([sys.executable, "-m", "tuner.worker"], input=json.dumps(request), text=True,
+    process = subprocess.run([sys.executable, "-m", "tuner.worker"], input=json.dumps(request), encoding="utf-8",
                              capture_output=True, cwd=ROOT, timeout=timeout, env=env or worker_env())
     return process, json.loads(process.stdout)
 
 
 def git(root, *args):
     return subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "-c", "user.name=repro",
-                           "-c", "user.email=repro@local", *args], cwd=root, capture_output=True, text=True, check=True)
+                           "-c", "user.email=repro@local", *args], cwd=root, capture_output=True, encoding="utf-8",
+                          check=True, timeout=CHILD_TIMEOUT)
 
 
 def build_error(values):
@@ -121,12 +127,23 @@ class SourceEditing(unittest.TestCase):
                      and getattr(n, "col_offset", None) == int(col) and number(n) is not None]
             self.assertEqual(number(nodes[0]), value)
 
+    def git_apply(self, patch, root, *options):
+        # The bytes the browser saves: a text pipe would encode the patch in the ANSI code page on
+        # Windows and turn its LF line endings into CRLF, which no longer matches the sources.
+        process = subprocess.run(["git", "apply", *options, "-"], input=patch.encode("utf-8"), cwd=root,
+                                 capture_output=True, timeout=CHILD_TIMEOUT)
+        self.assertEqual(process.returncode, 0, process.stderr.decode("utf-8", "replace"))
+
     def assert_patch_applies(self, patch):
-        subprocess.run(["git", "apply", "--check", "-"], input=patch, text=True, cwd=ROOT, check=True, capture_output=True)
+        self.git_apply(patch, ROOT, "--check")
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             copy_sources(root)
-            subprocess.run(["git", "apply", "-"], input=patch, text=True, cwd=root, check=True, capture_output=True)
+            # A repository with this one's attributes, so git writes the sources as it would in a clone:
+            # Git for Windows defaults to core.autocrlf=true, and .gitattributes keeps Python sources LF.
+            shutil.copyfile(ROOT / ".gitattributes", root / ".gitattributes")
+            git(root, "init", "-q")
+            self.git_apply(patch, root)
             for name, expected in self.catalog.edited_sources(self.session).items():
                 self.assertEqual((root / name).read_bytes(), expected)
 
@@ -218,7 +235,8 @@ class SourceEditing(unittest.TestCase):
     def test_every_module_the_worker_imports_is_watched(self):
         script = ("import sys\nfrom tuner.worker import Beadjoint\nBeadjoint()\n"
                   "print('\\n'.join(m.__file__ for n, m in sys.modules.items() if n.split('.')[0] in ('beadjoint', 'tuner')))")
-        process = subprocess.run([sys.executable, "-c", script], text=True, capture_output=True, cwd=ROOT, check=True)
+        process = subprocess.run([sys.executable, "-c", script], encoding="utf-8", capture_output=True, cwd=ROOT, check=True,
+                                 env=UTF8_ENV, timeout=CHILD_TIMEOUT)
         imported = {Path(f).resolve().relative_to(ROOT).as_posix() for f in process.stdout.split()}
         self.assertIn("beadjoint/setting.py", imported)
         self.assertLessEqual(imported, set(catalog().inputs))
@@ -227,8 +245,9 @@ class SourceEditing(unittest.TestCase):
 class SourceCommit(unittest.TestCase):
     def test_this_checkout(self):
         paths = [p for p in catalog().inputs if p.startswith("beadjoint/")]
-        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
-        clean = subprocess.run(["git", "diff", "--quiet", "HEAD", "--", *paths], cwd=ROOT).returncode == 0
+        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, encoding="utf-8",
+                              timeout=CHILD_TIMEOUT).stdout.strip()
+        clean = subprocess.run(["git", "diff", "--quiet", "HEAD", "--", *paths], cwd=ROOT, timeout=CHILD_TIMEOUT).returncode == 0
         self.assertEqual(source_commit(ROOT, paths), head if clean else None)
         self.assertIsNone(source_commit(ROOT / "beadjoint", ["glyphs.py"]), "root must be the top of the checkout")
 
@@ -514,8 +533,8 @@ class WorkerLogic(unittest.TestCase):
         fingerprint = finishing_fingerprint(geom)
         script = "from beadjoint import geom\nfrom tuner.worker import finishing_fingerprint\nprint(finishing_fingerprint(geom).hex())"
         for seed in ("1", "2"):      # constants that are sets must not make it vary between workers
-            process = subprocess.run([sys.executable, "-c", script], text=True, capture_output=True, cwd=ROOT, check=True,
-                                     env={**os.environ, "PYTHONHASHSEED": seed})
+            process = subprocess.run([sys.executable, "-c", script], encoding="utf-8", capture_output=True, cwd=ROOT, check=True,
+                                     env={**UTF8_ENV, "PYTHONHASHSEED": seed}, timeout=CHILD_TIMEOUT)
             self.assertEqual(process.stdout.strip(), fingerprint.hex())
         source = catalog().sources["beadjoint/geom.py"]
 
@@ -788,7 +807,8 @@ class WorkerRuns(unittest.TestCase):
                   "    assert meter.filled(glyphs['N'].geom) > 1, 'acute joins are filled by design'\n"
                   "    for accented, base in (('í', 'ı'), ('ĵ', 'ȷ'), ('ñ', 'n')):\n"
                   "        assert meter.finished[id(glyphs[accented].geom)][2] is glyphs[base].geom, accented\n")
-        process = subprocess.run([sys.executable, "-c", script], text=True, capture_output=True, cwd=ROOT, timeout=300)
+        process = subprocess.run([sys.executable, "-c", script], encoding="utf-8", capture_output=True, cwd=ROOT, timeout=300,
+                                 env=UTF8_ENV)
         self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
 
 
@@ -1070,7 +1090,7 @@ class Startup(unittest.TestCase):
                 return path
 
             finished = subprocess.Popen([sys.executable, "-c", "pass"])
-            finished.wait()
+            finished.wait(timeout=CHILD_TIMEOUT)
             make("fillaprint-tuner-legacy1")                           # no process id, a day old: removed
             make(f"fillaprint-tuner-{finished.pid}-x")                 # its server has exited: removed
             make("fillaprint-tuner-recent", time.time())               # in use recently: kept
@@ -1090,8 +1110,8 @@ class Startup(unittest.TestCase):
     def test_sigterm_removes_the_cache_directory(self):
         with tempfile.TemporaryDirectory() as directory:
             process = subprocess.Popen([sys.executable, "-m", "tuner.serve", "--port", "0", "--no-browser"], cwd=ROOT,
-                                       env={**os.environ, "TMPDIR": directory}, stdout=subprocess.PIPE,
-                                       stderr=subprocess.PIPE, text=True)
+                                       env={**UTF8_ENV, "TMPDIR": directory}, stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE, encoding="utf-8")
             try:
                 self.assertIn("Fillaprint glyph tuner: http://127.0.0.1:", process.stdout.readline())
                 caches = [n for n in os.listdir(directory) if n.startswith(serve.CACHE_PREFIX)]

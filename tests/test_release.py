@@ -123,8 +123,10 @@ class PackageRelease(unittest.TestCase):
         with tempfile.TemporaryDirectory() as out:
             result = subprocess.run(
                 [sys.executable, str(ROOT / "tools" / "package_release.py"), "--out", out],
-                capture_output=True, text=True, check=True, cwd=str(ROOT))
-            self.assertRegex(result.stdout.strip(), r"^\S+\.zip [0-9a-f]{64}$")
+                capture_output=True, encoding="utf-8", check=True, cwd=str(ROOT), timeout=120)
+            path, digest = result.stdout.strip().rsplit(" ", 1)     # the path may contain spaces
+            self.assertEqual(Path(path), Path(out) / f"{ZIP_STEM}.zip")
+            self.assertEqual(digest, hashlib.sha256(Path(path).read_bytes()).hexdigest())
 
     def test_zip_stem_matches_release(self):
         self.assertEqual(ZIP_STEM, "Fillaprint-" + RELEASE.replace(" ", "-"))
