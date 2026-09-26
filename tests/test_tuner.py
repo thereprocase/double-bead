@@ -868,6 +868,14 @@ class LocalServer(unittest.TestCase):
         status, _, reply = self.request("POST", path, body, headers)
         return status, reply
 
+    def test_port_cannot_be_taken_over(self):
+        # A socket that asks to share the port must not get it: on Windows SO_REUSEADDR would let it bind
+        # the listening tuner's port and receive its connections, tokens included.
+        with socket.socket() as other:
+            other.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            with self.assertRaises(OSError):
+                other.bind(("127.0.0.1", self.port))
+
     def test_static_routes_and_headers(self):
         routes = {"/": "text/html; charset=utf-8", "/app.js": "text/javascript; charset=utf-8",
                   "/style.css": "text/css; charset=utf-8"}
@@ -1064,6 +1072,7 @@ class ServerLimits(unittest.TestCase):
 
 class Startup(unittest.TestCase):
     def test_port_in_use_is_one_line(self):
+        # On Windows this needs SO_EXCLUSIVEADDRUSE: with SO_REUSEADDR the bind fails with WSAEACCES.
         with socket.socket() as busy:
             busy.bind(("127.0.0.1", 0))
             busy.listen()
@@ -1076,9 +1085,14 @@ class Startup(unittest.TestCase):
         self.assertNotIn("\n", message)
 
     def test_permission_error_suggests_another_port(self):
-        message = serve.bind_error(PermissionError(errno.EACCES, "Permission denied"), 80)
-        self.assertIn("--port 8767", message)
-        self.assertNotIn("\n", message)
+        denied = PermissionError(errno.EACCES, "Permission denied")
+        for windows, port, reason in ((False, 80, "Choose a port from 1024 to 65535"), (True, 80, "excludedportrange"),
+                                      (True, 8766, "excludedportrange")):
+            message = serve.bind_error(denied, port, windows=windows)
+            with self.subTest(windows=windows, port=port):
+                self.assertIn(reason, message)
+                self.assertIn("--port 8767", message)
+                self.assertNotIn("\n", message)
 
     def test_stale_caches_are_removed(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -10,6 +10,7 @@ import re
 import secrets
 import shutil
 import signal
+import socket
 import stat
 import subprocess
 import sys
@@ -53,6 +54,17 @@ CACHE_PID = re.compile(re.escape(CACHE_PREFIX) + r"(\d+)-")
 
 class TunerServer(ThreadingHTTPServer):
     daemon_threads = True
+    # Windows (the platform with SO_EXCLUSIVEADDRUSE) gives SO_REUSEADDR another meaning: a socket may
+    # bind a port that another socket is already listening on. With it set, another program could take
+    # over the tuner's port, and a busy port fails with WSAEACCES rather than WSAEADDRINUSE, which
+    # bind_error would report as a forbidden port. The tuner reserves its port there instead. Elsewhere
+    # SO_REUSEADDR only lets a restarted tuner bind while its old connections wind down.
+    allow_reuse_address = not hasattr(socket, "SO_EXCLUSIVEADDRUSE")
+
+    def server_bind(self):
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
 
     def __init__(self, port, root=ROOT, max_connections=MAX_CONNECTIONS):
         self.catalog = Catalog(root)
@@ -319,11 +331,17 @@ def _stop(signum, frame):
     raise _Stop
 
 
-def bind_error(exc, port):
+def bind_error(exc, port, windows=os.name == "nt"):
     """One line explaining why the server cannot listen on port."""
     other = port + 1 if 1024 <= port < 65535 else 8767
     if getattr(exc, "errno", None) in IN_USE:
         return f"Cannot start the tuner: port {port} is already in use. Choose another: python -m tuner.serve --port {other}"
+    if getattr(exc, "errno", None) in DENIED and windows:
+        # Windows has no privileged ports. It refuses a port another program holds exclusively, or one in
+        # a range the system reserves (Hyper-V, WSL and Docker reserve ranges of ports).
+        return (f"Cannot start the tuner: Windows does not allow listening on port {port}; another program holds it "
+                "or the system reserves it (netsh interface ipv4 show excludedportrange protocol=tcp). Choose another: "
+                f"python -m tuner.serve --port {other}")
     if getattr(exc, "errno", None) in DENIED:
         return (f"Cannot start the tuner: this system does not allow listening on port {port}. Choose a port from "
                 "1024 to 65535: python -m tuner.serve --port 8767")
