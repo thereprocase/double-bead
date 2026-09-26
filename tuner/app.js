@@ -1287,7 +1287,7 @@ function fillValidation(box) {
   const thickness = node(
     "p",
     { className: "muted" },
-    "Thickness above 2.85w is informational; dots and some joins intentionally exceed it.",
+    "Thickness above the two-bead 2.85w is informational up to the fonts' limit; dots and some joins intentionally exceed 2.85w.",
   );
   box.className =
     "validation-summary " +
