@@ -20,6 +20,7 @@ import numpy as np  # noqa: E402
 from scipy import ndimage  # noqa: E402
 from shapely import affinity  # noqa: E402
 
+from beadjoint import charset, geom, marks  # noqa: E402
 from beadjoint import glyphs as spec  # noqa: E402
 from beadjoint.charset import CHARS, full_m, full_mixed, full_p, glyph_name  # noqa: E402
 from beadjoint.geom import DOT, S, fillet, soft  # noqa: E402
@@ -32,6 +33,10 @@ FONTS = ROOT / "fonts"
 UNITS = 50
 OUTLINE_TOL = 1.5 / UNITS      # build.py: vertex rounding, simplification, centroid alignment
 GAP_TOL = 0.1 + 0.03           # build.py: the spec's 0.1w kern drop plus rounding
+# Finishing fills acute joins solid (spec 6), so shipped glyphs run past R2's 2.85. The designed
+# maxima: the arrow tips 4.84, V 4.75, N 4.54, the 4w bullet 3.97. A slab like v0.1.1's fused ĳ
+# (5.5) is a defect.
+SHIPPED_MAX_T = 4.85
 
 
 def piece_thickness(geom):
@@ -154,7 +159,8 @@ class Construction(unittest.TestCase):
 
 
 class HardRules(unittest.TestCase):
-    """No thin ink, no thin enclosed holes, separate pieces >= 1.98 w, in every glyph of every set."""
+    """No thin ink, no thin enclosed holes, separate pieces >= 1.98 w, and no ink thicker than the
+    designed maxima (SHIPPED_MAX_T), in every glyph of every set."""
 
     def check(self, glyphs):
         bad = []
@@ -162,16 +168,58 @@ class HardRules(unittest.TestCase):
             r = check_glyph(g.geom)
             ps = pieces(g.geom)
             gap = min((a.distance(b) for i, a in enumerate(ps) for b in ps[i + 1:]), default=99.0)
-            if r["thin"] or r["islands"] or gap < 1.98:
-                bad.append((c, r["thin"], r["islands"], round(gap, 3)))
+            if r["thin"] or r["islands"] or gap < 1.98 or r["thickness"] > SHIPPED_MAX_T:
+                bad.append((c, r["thin"], r["islands"], round(gap, 3), r["thickness"]))
         self.assertFalse(bad)
 
     def test_full_p(self):
         self.assertEqual(len(full_p()), len(CHARS))
         self.check(full_p())
 
+    def test_full_mixed(self):
+        # Tab is Proportional with the tabular 1; check the glyphs it does not share
+        own = {c: g for c, g in full_mixed().items() if g.geom is not full_p()[c].geom}
+        self.assertEqual(set(own), {"1"})
+        self.check(own)
+
     def test_full_m(self):
         self.check(full_m())
+
+
+class Finishing(unittest.TestCase):
+    """Finishing fills pinches in a glyph's negative space; it must never join pieces that the raw
+    geometry keeps apart (v0.1.1's 3w dots put ĳ's i and j 0.5w apart and it filled them solid).
+
+    One join is designed: the spec's Mono k (SPEC section 8) stops its arm 0.25w short of the stem, and
+    finishing fills that notch tip, which R3 allows at an acute join. The set is exact, so a new join
+    fails until it is fixed or added here with its reason."""
+
+    JOINED = {"M": {"k"}}
+
+    def raw(self, glyphs, base, anchors=None, caron_above=False):
+        """Each glyph before its own finishing, as charset._assemble builds it: base glyphs from the raw
+        dict, composites composed from the family's finished base glyphs."""
+        finished = {c: g.geom for c, g in glyphs.items()}
+        return {c: base[c] if c in base else marks.compose(c, *marks.decompose(c), finished, anchors, caron_above)
+                for c in glyphs}
+
+    def fused(self, glyphs, raw):
+        """{char: raw pieces per finished piece} wherever one finished piece holds several raw ones."""
+        out = {}
+        for c, g in glyphs.items():
+            parts = pieces(geom._clean(raw[c]))
+            counts = [sum(1 for q in parts if f.distance(q) < 1e-9) for f in pieces(g.geom)]
+            if max(counts) > 1:
+                out[c] = counts
+        return out
+
+    def test_no_pieces_fused(self):
+        mono = {"anchors": {"ı": 4.5, "ȷ": 6.0, "l": 4.5}, "caron_above": True}      # as charset.full_m
+        tab_one = {"1": full_mixed()["1"]}
+        for name, glyphs, raw in (("P", full_p(), self.raw(full_p(), charset.raw_p())),
+                                  ("M", full_m(), self.raw(full_m(), charset.raw_m(), **mono)),
+                                  ("T", tab_one, {"1": spec._raw_one_tabular()})):
+            self.assertEqual(set(self.fused(glyphs, raw)), self.JOINED.get(name, set()), name)
 
 
 class Setting(unittest.TestCase):
