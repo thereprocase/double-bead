@@ -155,8 +155,8 @@ header :focus-visible {
   white-space: nowrap;
 }
 /* Lists and text that take focus back when the control in them disappears: a lighter ring
-   than a control's, so keyboard users still see where they are. */
-[tabindex="-1"]:focus {
+   than a control's, so keyboard users still see where they are; a mouse click draws none. */
+[tabindex="-1"]:focus-visible {
   outline: 1px dashed var(--gl-cyan);
   outline-offset: 2px;
 }

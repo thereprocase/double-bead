@@ -158,8 +158,10 @@ tagged **Stale** or **Failed**, and dragging pauses until the preview is current
   glyph too wide for Mono; the message gives the new width. Select **Undo** or
   **Preview in Proportional**.
 - *Mono doesn't include ŉ: wider than Mono's 10w limit. Preview it in
-  Proportional or Tab.* The glyph is not in Mono even before your edit. Select
-  **Preview in Proportional**.
+  Proportional or Tab.* With edits present the message reads *Mono doesn't
+  include ŉ before this edit (wider than Mono's 10w limit), and it still doesn't
+  fit after it. Preview it in Proportional or Tab.* The glyph is not in Mono
+  even before your edit. Select **Preview in Proportional**.
 - Messages that name a glyph or construction and a problem come from values
   the geometry cannot use, for example *n (Base): the rounded corners at (1, 1)
   and (6, 1) together need 9w of a segment only 5w long. Reduce the corner
