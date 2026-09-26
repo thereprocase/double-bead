@@ -277,8 +277,10 @@ kern(A,B)  = inkgap(A,B) - rsb(A) - lsb(B)      # drop |kern| < 0.1w
 ```
 
 Monospace font: every advance = CELL_M, glyph centred, .notdef included (Mono draws the
-characters it leaves out as .notdef). Tabular figures: advance = CELL_F, kerning disabled
-between figures. Every font: the lsb stored in hmtx is the rounded outline's xMin.
+characters it leaves out as .notdef); post.isFixedPitch = 1 and OS/2 PANOSE family kind 2
+(Latin Text) with proportion 9 (monospaced). Tabular figures: advance = CELL_F, kerning
+disabled between figures. Every font: the lsb stored in hmtx is the rounded outline's xMin;
+.notdef is an 8w × 14w box with 2w walls (R1).
 
 ## 11. Verification
 

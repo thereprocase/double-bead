@@ -327,11 +327,23 @@ class Fonts(unittest.TestCase):
         font = FontReader(FONTS / "FillaprintMono-Regular.ttf").font
         cell = CELL_M * UNITS
         self.assertEqual(font["post"].isFixedPitch, 1)
+        panose = font["OS/2"].panose                  # font pickers and monospace checks read this
+        self.assertEqual((panose.bFamilyType, panose.bProportion), (2, 9))
         self.assertEqual({adv for adv, _ in font["hmtx"].metrics.values()}, {cell})
         glyf = font["glyf"]
         self.assertEqual(glyf[".notdef"].xMin + glyf[".notdef"].xMax, cell)
         drawn = [glyf[n] for n in font.getGlyphOrder() if glyf[n].numberOfContours > 0]
         self.assertGreaterEqual(cell + min(g.xMin for g in drawn) - max(g.xMax for g in drawn), LINE_MIN * UNITS)
+
+    def test_notdef_walls(self):
+        # the box shows wherever a font lacks a character (Mono lacks 14); it must print like a stroke
+        for name, _ in FAMILIES:
+            reader = FontReader(FONTS / name)
+            box = reader.outline(".notdef")
+            self.assertEqual(len(box.interiors), 1, name)
+            self.assertGreaterEqual(box.exterior.distance(box.interiors[0]), 2.0, name)
+            x0, _, x1, _ = box.bounds
+            self.assertTrue(0 < x0 and x1 < reader.hmtx[".notdef"][0] / UNITS, name)
 
     def test_tab_figure_cells(self):
         font = FontReader(FONTS / "FillaprintTab-Regular.ttf").font
