@@ -73,7 +73,8 @@ def members():
     """{member name -> bytes}, keys without the ZIP_STEM/ folder prefix."""
     fonts_dir = ROOT / "fonts"
     files = {name: (fonts_dir / name).read_bytes() for name in FONT_FILES}
-    files["OFL.txt"] = (ROOT / "OFL.txt").read_bytes()
+    # The committed LF bytes, also from a checkout that Git for Windows' core.autocrlf=true turned CRLF.
+    files["OFL.txt"] = (ROOT / "OFL.txt").read_bytes().replace(b"\r\n", b"\n")
     files["INSTALL.txt"] = install_text().encode("utf-8")
     return files
 

@@ -326,7 +326,7 @@ def _legacy(glyphs, classes, exceptions, left, right, space_pairs, no_kern):
 def build_all(out_dir, log=print):
     out_dir.mkdir(parents=True, exist_ok=True)
     from .licensing import LICENSE_TEXT
-    (out_dir / "OFL.txt").write_text(LICENSE_TEXT + "\n", encoding="utf-8")
+    (out_dir / "OFL.txt").write_text(LICENSE_TEXT + "\n", encoding="utf-8", newline="\n")
     report = {}
     for family, fname, glyphs, cells in (("Fillaprint", "Fillaprint-Regular.ttf", full_p(), None),
                                          ("Fillaprint Tab", "FillaprintTab-Regular.ttf", full_mixed(), CELL_F)):

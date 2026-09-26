@@ -14,6 +14,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -101,6 +102,18 @@ class PackageRelease(unittest.TestCase):
             self.assertEqual(digest_a, digest_b)
             self.assertEqual(path_a.read_bytes(), path_b.read_bytes())
             self.assertEqual(digest_a, hashlib.sha256(path_a.read_bytes()).hexdigest())
+
+    def test_crlf_checkout_packages_the_committed_license(self):
+        # Git for Windows' default core.autocrlf=true checks OFL.txt out with CRLF line endings.
+        committed = (ROOT / "OFL.txt").read_bytes().replace(b"\r\n", b"\n")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "fonts").mkdir()
+            for name in FONT_FILES:
+                (root / "fonts" / name).write_bytes((ROOT / "fonts" / name).read_bytes())
+            (root / "OFL.txt").write_bytes(committed.replace(b"\n", b"\r\n"))
+            with mock.patch.object(package_release, "ROOT", root):
+                self.assertEqual(package_release.members()["OFL.txt"], committed)
 
     def test_member_list_and_storage(self):
         with tempfile.TemporaryDirectory() as out:
