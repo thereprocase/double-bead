@@ -148,6 +148,13 @@ def kerning(glyphs, left, right, lsb, rsb, no_kern=lambda a, b: False):
     return classes, exceptions
 
 
+def _xmin(glyph):
+    """Left side bearing as hmtx must store it: the drawn outline's xMin (0 for an empty glyph).
+    Rounding the source bearing separately can land one unit off (Mono ]: 212.5 -> 212, xMin 213), and
+    TrueType takes the glyph origin from the phantom point pp1 = xMin - lsb, so the ink would move."""
+    return min(x for x, _ in glyph.coordinates) if glyph.numberOfContours > 0 else 0
+
+
 def _draw(geom, dx):
     """TrueType contours for geom shifted by dx (w): clockwise outers, counter-clockwise holes."""
     pen = TTGlyphPen(None)
@@ -220,24 +227,28 @@ def build_font(path, family, glyphs, lsb, rsb, space, fea=None, legacy=None, mon
             cmap[ord(a)] = names[c]
     cmap[0x2007], cmap[0x2008] = "uni2007", "uni2008"                  # figure space, punctuation space
     fb.setupCharacterMap(cmap)
-    outlines, hm = {}, {}
+    outlines, advance = {}, {}
+    # Mono draws the characters it lacks (the 14 too wide for its cell) as .notdef, so that box
+    # takes the cell like every other Mono glyph, centred, or it would break the fixed pitch.
+    advance[".notdef"] = CELL_M * UNITS if mono else 500
+    inset = (advance[".notdef"] - 500) // 2
     notdef = TTGlyphPen(None)
     for ring in ([(50, 0), (50, 700), (450, 700), (450, 0)], [(100, 50), (400, 50), (400, 650), (100, 650)]):
-        notdef.moveTo(ring[0])
-        for pt in ring[1:]:
-            notdef.lineTo(pt)
+        notdef.moveTo((ring[0][0] + inset, ring[0][1]))
+        for x, y in ring[1:]:
+            notdef.lineTo((x + inset, y))
         notdef.closePath()
-    outlines[".notdef"], hm[".notdef"] = notdef.glyph(), (500, 50)
-    outlines["space"], hm["space"] = TTGlyphPen(None).glyph(), (round(space * UNITS), 0)
+    outlines[".notdef"] = notdef.glyph()
+    outlines["space"], advance["space"] = TTGlyphPen(None).glyph(), round(space * UNITS)
     for gname, c in (("uni2007", "0"), ("uni2008", ".")):
-        outlines[gname], hm[gname] = TTGlyphPen(None).glyph(), (round((lsb[c] + glyphs[c].width + rsb[c]) * UNITS), 0)
+        outlines[gname], advance[gname] = TTGlyphPen(None).glyph(), round((lsb[c] + glyphs[c].width + rsb[c]) * UNITS)
     lo, hi = 0.0, 0.0
     for c, g in glyphs.items():
         outlines[names[c]] = _draw(g.geom, lsb[c] - g.minx)
-        hm[names[c]] = (round((lsb[c] + g.width + rsb[c]) * UNITS), round(lsb[c] * UNITS))
+        advance[names[c]] = round((lsb[c] + g.width + rsb[c]) * UNITS)
         lo, hi = min(lo, g.geom.bounds[1]), max(hi, g.geom.bounds[3])
     fb.setupGlyf(outlines)
-    fb.setupHorizontalMetrics(hm)
+    fb.setupHorizontalMetrics({n: (advance[n], _xmin(outlines[n])) for n in order})
     win_asc, win_desc = round((10 - lo) * UNITS) + 20, round((hi - 10) * UNITS) + 20
     fb.setupHorizontalHeader(ascent=800, descent=-200, lineGap=400)     # r2: 28 w pitch keeps accents off the line above
     ps = "".join(w[:1].upper() + w[1:] for w in family.split()) + "-Regular"      # FillaprintTab-Regular

@@ -19,8 +19,11 @@ from beadjoint.charset import CHARS, full_m, full_mixed, full_p  # noqa: E402
 from beadjoint.geom import DOT, S, fillet, soft  # noqa: E402
 from beadjoint.glyphs import pieces  # noqa: E402
 from beadjoint.readback import FontReader  # noqa: E402
-from beadjoint.setting import kerned, mixed, tabular  # noqa: E402
-from beadjoint.verify import check_glyph, line_gaps  # noqa: E402
+from beadjoint.setting import CELL_M, kerned, mixed, tabular  # noqa: E402
+from beadjoint.verify import LINE_MIN, check_glyph, line_gaps  # noqa: E402
+
+FONTS = ROOT / "fonts"
+UNITS = 50
 
 LINES = ["The quick brown fox jumps over the lazy dog.", "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG",
          "Příliš žluťoučký kůň úpěl ďábelské ódy", "Pchnąć w tę łódź jeża lub ośm skrzyń fig",
@@ -154,10 +157,16 @@ class Setting(unittest.TestCase):
         self.assertTrue(all(abs(s % 12) < 1e-6 or abs(s % 12 - 12) < 1e-6 for s in steps) or len(line) == 4)
 
 
+FAMILIES = (("Fillaprint-Regular.ttf", full_p), ("FillaprintTab-Regular.ttf", full_mixed),
+            ("FillaprintMono-Regular.ttf", full_m))
+
+
 class Fonts(unittest.TestCase):
+    """The committed TTFs, read back: rebuild them (python build.py) after changing the sources."""
+
     def test_set_lines_from_ttf(self):
         for name in ("Fillaprint-Regular.ttf", "FillaprintTab-Regular.ttf"):
-            reader = FontReader(ROOT / "fonts" / name)
+            reader = FontReader(FONTS / name)
             for text in LINES:
                 gaps = line_gaps([(c, g) for c, g, _ in reader.layout(text)])
                 low = [(a, b, round(d, 3)) for a, b, d in gaps if d < 1.98]
@@ -174,6 +183,28 @@ class Fonts(unittest.TestCase):
             d = out.boundary.hausdorff_distance(affinity.translate(g.geom, a.x - b.x, a.y - b.y).boundary)
             worst = max(worst, d)
         self.assertLess(worst, 0.03)
+
+    def test_mono_fixed_pitch(self):
+        """Every Mono advance is the 12w cell, .notdef included and centred (Mono draws the 14 characters
+        it leaves out as .notdef), and ink in neighbouring cells stays 1.98w apart."""
+        font = FontReader(FONTS / "FillaprintMono-Regular.ttf").font
+        cell = CELL_M * UNITS
+        self.assertEqual(font["post"].isFixedPitch, 1)
+        self.assertEqual({adv for adv, _ in font["hmtx"].metrics.values()}, {cell})
+        glyf = font["glyf"]
+        self.assertEqual(glyf[".notdef"].xMin + glyf[".notdef"].xMax, cell)
+        drawn = [glyf[n] for n in font.getGlyphOrder() if glyf[n].numberOfContours > 0]
+        self.assertGreaterEqual(cell + min(g.xMin for g in drawn) - max(g.xMax for g in drawn), LINE_MIN * UNITS)
+
+    def test_lsb_is_outline_xmin(self):
+        """TrueType places an outline by its hmtx lsb (phantom point xMin - lsb), so the two must agree."""
+        for name, _ in FAMILIES:
+            font = FontReader(FONTS / name).font
+            glyf, hmtx = font["glyf"], font["hmtx"]
+            bad = [(n, hmtx[n][1], glyf[n].xMin) for n in font.getGlyphOrder()
+                   if glyf[n].numberOfContours > 0 and hmtx[n][1] != glyf[n].xMin]
+            bad += [(n, hmtx[n][1], None) for n in font.getGlyphOrder() if glyf[n].numberOfContours == 0 and hmtx[n][1]]
+            self.assertFalse(bad, name)
 
 
 if __name__ == "__main__":

@@ -227,7 +227,9 @@ advance(X) = lsb(X) + bboxW(X) + rsb(X)
 kern(A,B)  = inkgap(A,B) - rsb(A) - lsb(B)      # drop |kern| < 0.1w
 ```
 
-Monospace font: every advance = CELL_M, glyph centred. Tabular figures: advance = CELL_F, kerning disabled between figures.
+Monospace font: every advance = CELL_M, glyph centred, .notdef included (Mono draws the
+characters it leaves out as .notdef). Tabular figures: advance = CELL_F, kerning disabled
+between figures. Every font: the lsb stored in hmtx is the rounded outline's xMin.
 
 ## 11. Verification
 
