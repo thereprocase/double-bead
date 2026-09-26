@@ -1,4 +1,4 @@
-"""Build the Fillaprint browser site (static, served on the LAN by site/serve.py).
+"""Build the Fillaprint browser site (static, served locally by site/serve.py; on the LAN with --host 0.0.0.0).
 
     python site/build_site.py [--demo demo/check-owt0.json] [--crops demo/glyphs]
 
