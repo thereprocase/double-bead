@@ -8,6 +8,7 @@ built TTFs (outlines, metrics, set lines and license metadata read back). The TT
 committed fonts: rebuild them (python build.py) after changing the sources.
 """
 import math
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -16,37 +17,22 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.stdout.reconfigure(encoding="utf-8")
 
-import numpy as np  # noqa: E402
-from scipy import ndimage  # noqa: E402
 from shapely import affinity  # noqa: E402
 
-from beadjoint import charset, geom, marks  # noqa: E402
+from beadjoint import charset  # noqa: E402
 from beadjoint import glyphs as spec  # noqa: E402
 from beadjoint.charset import CHARS, full_m, full_mixed, full_p, glyph_name  # noqa: E402
 from beadjoint.geom import DOT, S, So, fillet, soft  # noqa: E402
-from beadjoint.glyphs import FIGURES, pieces  # noqa: E402
+from beadjoint.glyphs import FIGURES  # noqa: E402
 from beadjoint.readback import FontReader  # noqa: E402
-from beadjoint.setting import CELL_F, CELL_M, kerned, mixed, tabular  # noqa: E402
-from beadjoint.verify import LINE_MIN, MAX_T, RES, check_glyph, line_gaps, raster  # noqa: E402
+from beadjoint.setting import CELL_F, CELL_M, FIGURE_MAX, kerned, mixed, tabular  # noqa: E402
+from beadjoint.verify import (FUSED_BY_DESIGN, LINE_MIN, MAX_T, SHIPPED_MAX_T, check_glyph, fused_pieces,  # noqa: E402
+                              is_dot, line_gaps, piece_gap, piece_thickness)
 
 FONTS = ROOT / "fonts"
 UNITS = 50
 OUTLINE_TOL = 1.5 / UNITS      # build.py: vertex rounding, simplification, centroid alignment
 GAP_TOL = 0.1 + 0.03           # build.py: the spec's 0.1w kern drop plus rounding
-# Finishing fills acute joins solid (spec 6), so shipped glyphs run past R2's 2.85. The designed
-# maxima: the arrow tips 4.84, V 4.75, N 4.54, the 4w bullet 3.97. A slab like v0.1.1's fused ĳ
-# (5.5) is a defect.
-SHIPPED_MAX_T = 4.85
-
-
-def piece_thickness(geom):
-    """[(thickness, area)] for each separate piece of ink, from one 40 px/w raster as in verify."""
-    mask = raster(geom)
-    edt = ndimage.distance_transform_edt(mask)
-    lab, n = ndimage.label(mask)
-    idx = np.arange(1, n + 1)
-    return [(2 * float(t) / RES, float(a) / RES ** 2)
-            for t, a in zip(ndimage.maximum(edt, lab, idx), ndimage.sum(mask, lab, idx))]
 
 
 LINES = ["The quick brown fox jumps over the lazy dog.", "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG",
@@ -116,7 +102,7 @@ class SpecReference(unittest.TestCase):
         for name, glyphs in sets.items():
             for c, g in glyphs.items():
                 for t, area in piece_thickness(g.geom):
-                    if area < 1.1 * math.pi * (t / 2) ** 2:
+                    if is_dot(t, area):
                         self.assertAlmostEqual(t, 2 * DOT, delta=0.05, msg=f"{name}:{c} dot")
                     else:
                         self.assertLessEqual(t, MAX_T, f"{name}:{c}")
@@ -160,6 +146,13 @@ class Construction(unittest.TestCase):
         for c, g in latin.mono_extras().items():
             self.assertTrue(charset.raw_m()[c].equals_exact(g, 0), c)
 
+    def test_extension_copies_match_latin(self):
+        # The spec sets check glyphs._raw_extension's copies while the fonts draw latin's shapes; an edit
+        # to one must reach the other or the conformance checks stop describing the fonts.
+        ext, raw = spec._raw_extension(), charset.raw_p()
+        for c in spec.EXTENSION:
+            self.assertLess(ext[c].symmetric_difference(raw[c]).area, 1e-9, c)
+
     def test_mono_shares_p_shapes(self):
         # Mono once took J " - . / from the spec set's uncataloged duplicates, so tuner edits to
         # them (and to the ' tick " shares) changed P and Tab but not Mono.
@@ -169,17 +162,21 @@ class Construction(unittest.TestCase):
 
 class HardRules(unittest.TestCase):
     """No thin ink, no thin enclosed holes, separate pieces >= 1.98 w, and no ink thicker than the
-    designed maxima (SHIPPED_MAX_T), in every glyph of every set."""
+    designed maxima (verify.SHIPPED_MAX_T), in every glyph of every family, as build.py checks."""
 
     def check(self, glyphs):
-        bad = []
+        bad, thick = [], []
         for c, g in glyphs.items():
             r = check_glyph(g.geom)
-            ps = pieces(g.geom)
-            gap = min((a.distance(b) for i, a in enumerate(ps) for b in ps[i + 1:]), default=99.0)
-            if r["thin"] or r["islands"] or gap < 1.98 or r["thickness"] > SHIPPED_MAX_T:
-                bad.append((c, r["thin"], r["islands"], round(gap, 3), r["thickness"]))
+            gap = piece_gap(g.geom)
+            if r["thin"] or r["islands"] or gap < LINE_MIN:
+                bad.append((c, r["thin"], r["islands"], round(gap, 3)))
+            if r["thickness"] > SHIPPED_MAX_T:
+                thick.append((c, r["thickness"]))
         self.assertFalse(bad)
+        self.assertFalse(thick, f"over SHIPPED_MAX_T = {SHIPPED_MAX_T}w, which sits just above the designed maxima of filled "
+                                "joins (arrow tips 4.84w, V 4.75w, N 4.54w) to absorb raster rounding. The guard against "
+                                "pieces fused by finishing is Finishing.test_no_pieces_fused.")
 
     def test_full_p(self):
         self.assertEqual(len(full_p()), len(CHARS))
@@ -198,37 +195,22 @@ class HardRules(unittest.TestCase):
 class Finishing(unittest.TestCase):
     """Finishing fills pinches in a glyph's negative space; it must never join pieces that the raw
     geometry keeps apart (v0.1.1's 3w dots put ĳ's i and j 0.5w apart and it filled them solid).
+    build.py runs the same check.
 
-    One join is designed: the spec's Mono k (SPEC section 8) stops its arm 0.25w short of the stem, and
-    finishing fills that notch tip, which R3 allows at an acute join. The set is exact, so a new join
-    fails until it is fixed or added here with its reason."""
-
-    JOINED = {"M": {"k"}}
-
-    def raw(self, glyphs, base, anchors=None, caron_above=False):
-        """Each glyph before its own finishing, as charset._assemble builds it: base glyphs from the raw
-        dict, composites composed from the family's finished base glyphs."""
-        finished = {c: g.geom for c, g in glyphs.items()}
-        return {c: base[c] if c in base else marks.compose(c, *marks.decompose(c), finished, anchors, caron_above)
-                for c in glyphs}
-
-    def fused(self, glyphs, raw):
-        """{char: raw pieces per finished piece} wherever one finished piece holds several raw ones."""
-        out = {}
-        for c, g in glyphs.items():
-            parts = pieces(geom._clean(raw[c]))
-            counts = [sum(1 for q in parts if f.distance(q) < 1e-9) for f in pieces(g.geom)]
-            if max(counts) > 1:
-                out[c] = counts
-        return out
+    One join is designed, verify.FUSED_BY_DESIGN: the spec's Mono k (SPEC section 8) stops its arm 0.25w
+    short of the stem, and finishing fills that notch tip, which R3 allows at an acute join. The set is
+    exact, so a new join fails until it is fixed or added there with its reason."""
 
     def test_no_pieces_fused(self):
-        mono = {"anchors": {"ı": 4.5, "ȷ": 6.0, "l": 4.5}, "caron_above": True}      # as charset.full_m
-        tab_one = {"1": full_mixed()["1"]}
-        for name, glyphs, raw in (("P", full_p(), self.raw(full_p(), charset.raw_p())),
-                                  ("M", full_m(), self.raw(full_m(), charset.raw_m(), **mono)),
-                                  ("T", tab_one, {"1": spec._raw_one_tabular()})):
-            self.assertEqual(set(self.fused(glyphs, raw)), self.JOINED.get(name, set()), name)
+        inputs = charset.finish_inputs()          # what finishing received, recorded as the families were built
+        for name, glyphs in (("P", full_p()), ("T", full_mixed()), ("M", full_m())):
+            self.assertEqual(set(inputs[name]), set(glyphs), name)
+            self.assertEqual(set(fused_pieces(glyphs, inputs[name])), set(FUSED_BY_DESIGN.get(name, ())), name)
+
+    def test_raw_dicts_are_read_only(self):
+        for raw in (charset.raw_p(), charset.raw_m(), charset.finish_inputs()["P"]):
+            with self.assertRaises(TypeError):
+                raw["a"] = None
 
 
 class Setting(unittest.TestCase):
@@ -246,11 +228,12 @@ class Setting(unittest.TestCase):
         self.assertTrue(all(abs(s % 12) < 1e-6 or abs(s % 12 - 12) < 1e-6 for s in steps) or len(line) == 4)
 
     def test_cells_clear_the_line_check(self):
-        # Centred in their cells, the two widest glyphs sit cell - width apart: the cells leave
-        # 2.00w (Mono) and 2.00w (Tab digits; 1.98w at the tuner's 7.02w budget), not GAPMIN.
+        # Centred in their cells, two neighbours sit cell - width apart at worst: every glyph within its
+        # cell's budget keeps the 1.98 line check (Mono 2.00w today, Tab digits 2.00w; not GAPMIN).
+        self.assertEqual(FIGURE_MAX, CELL_F - LINE_MIN)
+        for c in FIGURES:
+            self.assertLessEqual(full_mixed()[c].width, FIGURE_MAX, c)
         self.assertGreaterEqual(CELL_M - max(g.width for g in full_m().values()), LINE_MIN)
-        self.assertGreaterEqual(CELL_F - max(full_mixed()[c].width for c in FIGURES), LINE_MIN)
-        self.assertGreaterEqual(CELL_F - 7.02, LINE_MIN - 1e-9)
 
 
 class LineSpacing(unittest.TestCase):
@@ -292,6 +275,10 @@ class LineSpacing(unittest.TestCase):
             text = doc.read_text(encoding="utf-8")
             self.assertIn(f"{self.CLEAR_PITCH:g} × w", text, doc.name)
             self.assertIn(" ".join(self.COMMA_BELOW), text, doc.name)
+        # the browser specimen's size calculator: one row per pitch, in line widths times u
+        js = (ROOT / "site" / "template" / "app.js").read_text(encoding="utf-8")
+        rows = re.findall(r'\["Line pitch[^"]*", ([\d.]+) \* u,', js)
+        self.assertEqual(sorted(float(v) for v in rows), [self.PITCH, self.CLEAR_PITCH])
 
 
 FAMILIES = (("Fillaprint-Regular.ttf", full_p), ("FillaprintTab-Regular.ttf", full_mixed),
@@ -345,11 +332,23 @@ class Fonts(unittest.TestCase):
         font = FontReader(FONTS / "FillaprintMono-Regular.ttf").font
         cell = CELL_M * UNITS
         self.assertEqual(font["post"].isFixedPitch, 1)
+        panose = font["OS/2"].panose                  # font pickers and monospace checks read this
+        self.assertEqual((panose.bFamilyType, panose.bProportion), (2, 9))
         self.assertEqual({adv for adv, _ in font["hmtx"].metrics.values()}, {cell})
         glyf = font["glyf"]
         self.assertEqual(glyf[".notdef"].xMin + glyf[".notdef"].xMax, cell)
         drawn = [glyf[n] for n in font.getGlyphOrder() if glyf[n].numberOfContours > 0]
         self.assertGreaterEqual(cell + min(g.xMin for g in drawn) - max(g.xMax for g in drawn), LINE_MIN * UNITS)
+
+    def test_notdef_walls(self):
+        # the box shows wherever a font lacks a character (Mono lacks 14); it must print like a stroke
+        for name, _ in FAMILIES:
+            reader = FontReader(FONTS / name)
+            box = reader.outline(".notdef")
+            self.assertEqual(len(box.interiors), 1, name)
+            self.assertGreaterEqual(box.exterior.distance(box.interiors[0]), 2.0, name)
+            x0, _, x1, _ = box.bounds
+            self.assertTrue(0 < x0 and x1 < reader.hmtx[".notdef"][0] / UNITS, name)
 
     def test_tab_figure_cells(self):
         font = FontReader(FONTS / "FillaprintTab-Regular.ttf").font

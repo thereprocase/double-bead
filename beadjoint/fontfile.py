@@ -32,6 +32,7 @@ from fontTools.fontBuilder import FontBuilder
 from fontTools.misc.timeTools import timestampSinceEpoch
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import newTable
+from fontTools.ttLib.tables.O_S_2f_2 import Panose
 from fontTools.ttLib.tables._k_e_r_n import KernTable_format_0
 from shapely import affinity
 from shapely.geometry import Polygon
@@ -235,8 +236,10 @@ def build_font(path, family, glyphs, lsb, rsb, space, fea=None, legacy=None, mon
     # takes the cell like every other Mono glyph, centred, or it would break the fixed pitch.
     advance[".notdef"] = CELL_M * UNITS if mono else 500
     inset = (advance[".notdef"] - 500) // 2
+    wall = 2 * UNITS                                  # R1: the box prints as two beads, like every stroke
     notdef = TTGlyphPen(None)
-    for ring in ([(50, 0), (50, 700), (450, 700), (450, 0)], [(100, 50), (400, 50), (400, 650), (100, 650)]):
+    for ring in ([(50, 0), (50, 700), (450, 700), (450, 0)],
+                 [(50 + wall, wall), (450 - wall, wall), (450 - wall, 700 - wall), (50 + wall, 700 - wall)]):
         notdef.moveTo((ring[0][0] + inset, ring[0][1]))
         for x, y in ring[1:]:
             notdef.lineTo((x + inset, y))
@@ -257,8 +260,10 @@ def build_font(path, family, glyphs, lsb, rsb, space, fea=None, legacy=None, mon
     ps = "".join(w[:1].upper() + w[1:] for w in family.split()) + "-Regular"      # FillaprintTab-Regular
     fb.setupNameTable({"familyName": family, "styleName": "Regular", "uniqueFontIdentifier": f"{family} {VERSION}",
                        "fullName": family, "psName": ps, "version": f"Version {VERSION}", "description": DESCRIPTION})
+    # Monospace checks and font pickers read PANOSE: family kind 2 (Latin Text) with proportion 9 (monospaced).
+    panose = Panose(bFamilyType=2, bProportion=9) if mono else Panose()
     fb.setupOS2(version=4, sTypoAscender=800, sTypoDescender=-200, sTypoLineGap=400, usWinAscent=win_asc, usWinDescent=win_desc,
-                sxHeight=500, sCapHeight=700, usWeightClass=400, achVendID="RPRO", fsSelection=0x40 | 0x80)
+                sxHeight=500, sCapHeight=700, usWeightClass=400, achVendID="RPRO", fsSelection=0x40 | 0x80, panose=panose)
     fb.setupPost(isFixedPitch=1 if mono else 0)
     if fea:
         addOpenTypeFeaturesFromString(fb.font, fea)
