@@ -2,8 +2,10 @@
 
     python -m unittest discover -s tests      (from the repo root)
 
-Covers the geometry primitives, the spec's reference results, the hard rules on every glyph of every
-set, the setting engine's line check, and the built TTFs (outlines and set lines read back).
+Covers the geometry primitives, the construction entry points, the spec's reference results, the hard
+rules on every glyph of every set, the setting engine's line check, the line-spacing band, and the
+built TTFs (outlines, metrics, set lines and license metadata read back). The TTF tests read the
+committed fonts: rebuild them (python build.py) after changing the sources.
 """
 import math
 import sys
@@ -14,16 +16,33 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.stdout.reconfigure(encoding="utf-8")
 
+import numpy as np  # noqa: E402
+from scipy import ndimage  # noqa: E402
+from shapely import affinity  # noqa: E402
+
 from beadjoint import glyphs as spec  # noqa: E402
 from beadjoint.charset import CHARS, full_m, full_mixed, full_p, glyph_name  # noqa: E402
 from beadjoint.geom import DOT, S, fillet, soft  # noqa: E402
 from beadjoint.glyphs import FIGURES, pieces  # noqa: E402
 from beadjoint.readback import FontReader  # noqa: E402
 from beadjoint.setting import CELL_F, CELL_M, kerned, mixed, tabular  # noqa: E402
-from beadjoint.verify import LINE_MIN, check_glyph, line_gaps  # noqa: E402
+from beadjoint.verify import LINE_MIN, MAX_T, RES, check_glyph, line_gaps, raster  # noqa: E402
 
 FONTS = ROOT / "fonts"
 UNITS = 50
+OUTLINE_TOL = 1.5 / UNITS      # build.py: vertex rounding, simplification, centroid alignment
+GAP_TOL = 0.1 + 0.03           # build.py: the spec's 0.1w kern drop plus rounding
+
+
+def piece_thickness(geom):
+    """[(thickness, area)] for each separate piece of ink, from one 40 px/w raster as in verify."""
+    mask = raster(geom)
+    edt = ndimage.distance_transform_edt(mask)
+    lab, n = ndimage.label(mask)
+    idx = np.arange(1, n + 1)
+    return [(2 * float(t) / RES, float(a) / RES ** 2)
+            for t, a in zip(ndimage.maximum(edt, lab, idx), ndimage.sum(mask, lab, idx))]
+
 
 LINES = ["The quick brown fox jumps over the lazy dog.", "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG",
          "Příliš žluťoučký kůň úpěl ďábelské ódy", "Pchnąć w tę łódź jeża lub ośm skrzyń fig",
@@ -74,6 +93,19 @@ class SpecReference(unittest.TestCase):
         self.assertLessEqual(max(v["thickness"] for c, v in res.items() if c not in self.DOTTED), 2.84)
         self.assert_dots(res)
         self.assertFalse([c for c, v in res.items() if v["thin"]])
+
+    def test_thickness_every_glyph(self):
+        """R2 on every glyph the build checks, the extension glyphs and the tabular 1 included. R11 dots
+        are excepted: a piece is a dot when its area is that of its inscribed disk."""
+        sets = {"P": spec.set_p(), "M": spec.set_m(), "T": {"1": spec.set_mixed()["1"]}}
+        self.assertTrue(set(spec.EXTENSION) <= set(sets["P"]) and set(spec.EXTENSION) <= set(sets["M"]))
+        for name, glyphs in sets.items():
+            for c, g in glyphs.items():
+                for t, area in piece_thickness(g.geom):
+                    if area < 1.1 * math.pi * (t / 2) ** 2:
+                        self.assertAlmostEqual(t, 2 * DOT, delta=0.05, msg=f"{name}:{c} dot")
+                    else:
+                        self.assertLessEqual(t, MAX_T, f"{name}:{c}")
 
 
 class Construction(unittest.TestCase):
@@ -221,16 +253,34 @@ class Fonts(unittest.TestCase):
                 self.assertFalse(low, f"{name}: {text!r}")
 
     def test_outlines_follow_source(self):
-        reader = FontReader(ROOT / "fonts" / "FillaprintTab-Regular.ttf")
-        from beadjoint.charset import glyph_name
-        from shapely import affinity
-        worst = 0.0
-        for c, g in full_mixed().items():
-            out = reader.outline(glyph_name(c))
-            a, b = out.centroid, g.geom.centroid
-            d = out.boundary.hausdorff_distance(affinity.translate(g.geom, a.x - b.x, a.y - b.y).boundary)
-            worst = max(worst, d)
-        self.assertLess(worst, 0.03)
+        # build.py's tolerance, on every glyph of every family
+        for name, source in FAMILIES:
+            reader = FontReader(FONTS / name)
+            dev = {}
+            for c, g in source().items():
+                out = reader.outline(glyph_name(c))
+                a, b = out.centroid, g.geom.centroid
+                dev[c] = out.boundary.hausdorff_distance(affinity.translate(g.geom, a.x - b.x, a.y - b.y).boundary)
+            worst = max(dev, key=dev.get)
+            self.assertLessEqual(dev[worst], OUTLINE_TOL, f"{name}: {worst!r}")
+
+    def test_mono_lines_follow_setting(self):
+        """build.py's line checks on Mono: every gap within GAP_TOL of the setting engine, positions
+        off by no more than outline rounding (whole-unit cells, no kerning), and the 1.98 floor."""
+        reader = FontReader(FONTS / "FillaprintMono-Regular.ttf")
+        mono = full_m()
+        for text in LINES + [spec.LOWER, spec.FIGURES]:
+            text = "".join(c for c in text if c == " " or c in mono)
+            src, ttf = tabular(text), reader.layout(text)
+            self.assertEqual([c for c, _, _ in src], [c for c, _, _ in ttf], text)
+            gaps = lambda line: [b.bounds[0] - a.bounds[2] for (_, a, _), (_, b, _) in zip(line, line[1:])]
+            dev = max((abs(x - y) for x, y in zip(gaps(src), gaps(ttf))), default=0.0)
+            drift = max(abs((s.bounds[0] - src[0][1].bounds[0]) - (t.bounds[0] - ttf[0][1].bounds[0]))
+                        for (_, s, _), (_, t, _) in zip(src, ttf))
+            self.assertLessEqual(dev, GAP_TOL, text)
+            self.assertLessEqual(drift, OUTLINE_TOL, text)
+            low = [(a, b, round(d, 3)) for a, b, d in line_gaps([(c, g) for c, g, _ in ttf]) if d < LINE_MIN]
+            self.assertFalse(low, text)
 
     def test_mono_fixed_pitch(self):
         """Every Mono advance is the 12w cell, .notdef included and centred (Mono draws the 14 characters
@@ -262,6 +312,42 @@ class Fonts(unittest.TestCase):
                    if glyf[n].numberOfContours > 0 and hmtx[n][1] != glyf[n].xMin]
             bad += [(n, hmtx[n][1], None) for n in font.getGlyphOrder() if glyf[n].numberOfContours == 0 and hmtx[n][1]]
             self.assertFalse(bad, name)
+
+
+class Licensing(unittest.TestCase):
+    """OFL metadata travels inside each TTF: copyright, license text and URL, installable embedding."""
+
+    IDS = (0, 9, 12, 13, 14)
+
+    def assert_licensed(self, font, where):
+        from beadjoint.licensing import COPYRIGHT, LICENSE_TEXT, LICENSE_URL
+        name = font["name"]
+        for i in self.IDS:
+            recs = [(r.platformID, r.platEncID, r.langID) for r in name.names if r.nameID == i]
+            self.assertEqual(recs, [(3, 1, 0x409)], f"{where}: name {i}")
+        self.assertEqual(name.getName(0, 3, 1, 0x409).toUnicode(), COPYRIGHT, where)
+        self.assertEqual(name.getName(13, 3, 1, 0x409).toUnicode(), LICENSE_TEXT, where)
+        self.assertEqual(name.getName(14, 3, 1, 0x409).toUnicode(), LICENSE_URL, where)
+        self.assertIn("SIL OPEN FONT LICENSE VERSION 1.1", LICENSE_TEXT.upper())
+        self.assertEqual(LICENSE_TEXT, (ROOT / "OFL.txt").read_text(encoding="utf-8").strip())
+        self.assertEqual(font["OS/2"].fsType, 0, where)
+
+    def test_apply_license(self):
+        from fontTools.ttLib import TTFont, newTable
+        from beadjoint.licensing import apply_license
+        font = TTFont()
+        font["name"] = newTable("name")
+        font["name"].names = []
+        font["name"].setName("stale copyright", 0, 1, 0, 0)          # replaced on every platform
+        font["name"].setName("stale license", 13, 3, 1, 0x409)
+        font["OS/2"] = newTable("OS/2")
+        font["OS/2"].fsType = 0x0004                                  # preview & print only
+        apply_license(font)
+        self.assert_licensed(font, "apply_license")
+
+    def test_fonts_carry_license(self):
+        for name, _ in FAMILIES:
+            self.assert_licensed(FontReader(FONTS / name).font, name)
 
 
 if __name__ == "__main__":
