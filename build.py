@@ -3,30 +3,40 @@
     python build.py            -> fonts/*.ttf, specimen/*.png, report.json
 
 Checks (spec 11), all of which must pass or the build exits 1:
-  * every glyph of P, M and the tabular 1: thickness <= 2.85w, no thin pieces
-  * every outline read back from each TTF lies within 1.5 font units (0.03w: vertex rounding
-    0.014w, simplification 0.004w, centroid alignment) of its source glyph, and passes the same
-    checks with the thin radius lowered by one unit (a 2w disk rounded to the spec's 50 units/w
-    grid loses up to 0.014w of radius; the 40 px/w raster tolerates 0.002w on a disk)
+  * spec conformance: every glyph of the spec's sets P and M (spec 7 and 8 plus the extension
+    glyphs, finished with soft() alone) and the tabular 1: strokes at most 2.85w thick (R2; R11
+    dots excepted), no thin pieces, no thin enclosed islands, separate pieces >= 1.98w apart
+    (except Mono's k, whose notch tip only the fonts' finishing fills)
+  * shipped families, every glyph of Fillaprint, Tab and Mono (finished with geom.finish, spec 6):
+    - from the source: separate pieces >= 1.98w apart, and finishing joins no pieces its input
+      kept apart (verify.FUSED_BY_DESIGN: the one designed join, Mono's k)
+    - as read back from each TTF: within 1.5 font units (0.03w: vertex rounding 0.014w,
+      simplification 0.004w, centroid alignment) of its source glyph, at most
+      verify.SHIPPED_MAX_T = 4.85w thick (finishing fills acute joins solid), and no thin pieces
+      or islands with the thin radius lowered by one unit (a 2w disk rounded to the spec's 50
+      units/w grid loses up to 0.014w of radius; the 40 px/w raster tolerates 0.002w on a disk)
   * set lines in all three settings, from the source geometry and from each TTF's own metrics
     and kern table: every neighbour pair >= 1.98w apart
   * each TTF reproduces its setting: every neighbour gap (word spaces included) within 0.13w of
-    the setting engine (the spec's 0.1w kern drop plus rounding); cumulative drift reported
+    the setting engine (the spec's 0.1w kern drop plus rounding)
+Reported only: tight pieces, thickness maxima, cumulative drift.
 """
 import json
+import math
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from beadjoint.charset import full_m, full_mixed, full_p, glyph_name  # noqa: E402
+from beadjoint.charset import finish_inputs, full_m, full_mixed, full_p, glyph_name  # noqa: E402
 from beadjoint.fontfile import KERN_DROP, UNITS, build_all  # noqa: E402
 from beadjoint.glyphs import FIGURES, LOWER, set_m, set_mixed, set_p  # noqa: E402
 from beadjoint.readback import FontReader  # noqa: E402
 from beadjoint.setting import kerned, mixed, tabular  # noqa: E402
 from beadjoint.specimen import draw_rows, thickness_map  # noqa: E402
-from beadjoint.verify import LINE_MIN, THIN_R, check_glyph, check_set, line_gaps  # noqa: E402
+from beadjoint.verify import (FUSED_BY_DESIGN, LINE_MIN, MAX_T, SHIPPED_MAX_T, THIN_R, check_glyph,  # noqa: E402
+                              check_set, fused_pieces, line_gaps, piece_gap, stroke_thickness)
 from shapely import affinity  # noqa: E402
 
 LINES = [LOWER, FIGURES, "double bead", "the quick brown fox jumps over the lazy dog",
@@ -35,6 +45,7 @@ LINES = [LOWER, FIGURES, "double bead", "the quick brown fox jumps over the lazy
 GAP_TOL = KERN_DROP + 0.03
 GRID = 1 / UNITS
 OUTLINE_TOL = 1.5 * GRID
+FAMILY_SET = {"Fillaprint": "P", "Fillaprint Tab": "T", "Fillaprint Mono": "M"}
 
 
 def _summary(results):
@@ -46,6 +57,23 @@ def _summary(results):
             "fail": [c for c, v in results.items() if not v["ok"]]}
 
 
+def _finite_min(values):
+    finite = [v for v in values if v != math.inf]
+    return round(min(finite), 3) if finite else None
+
+
+def _pieces_text(s):
+    """Piece gaps for the printout: the closest separate pieces, then any exempt designed join."""
+    parts = [f"pieces >= {s['min_piece_gap']}" if s["min_piece_gap"] is not None else "one piece each"]
+    parts += [f"{c} {d} exempt" for c, d in s.get("exempt_piece_gaps", {}).items()]
+    return ", ".join(parts)
+
+
+def _spec_line(name, s):
+    return (f"spec set {name:4s} max {s['max_thickness']} ({s['max_at']}), strokes <= {s['max_stroke']}, "
+            f"{_pieces_text(s)}, thin {s['thin'] or 'none'}")
+
+
 def _line_min(line):
     gaps = line_gaps([(c, g) for c, g, _ in line])
     return min((d for *_, d in gaps), default=99.0)
@@ -53,18 +81,30 @@ def _line_min(line):
 
 def main():
     failures = []
-    report = {"glyphs": {}, "fonts": {}, "lines": {}}
+    report = {"spec_sets": {}, "fonts": {}, "lines": {}}
 
+    # Spec conformance: the spec's own sets. The fonts ship the full families, checked below as
+    # read back from each TTF.
     sets = {"P": set_p(), "M": set_m(), "T:1": {"1": set_mixed()["1"]}}
     for name, glyphs in sets.items():
         s = _summary(check_set(glyphs))
-        report["glyphs"][name] = s
-        failures += [f"glyph {name}:{c}" for c in s["fail"]]
+        strokes = {c: stroke_thickness(g.geom) for c, g in glyphs.items()}
+        gaps = {c: piece_gap(g.geom) for c, g in glyphs.items()}
+        # a designed join (Mono's k) stays open in the spec set: soft() does not fill its notch tip
+        designed = FUSED_BY_DESIGN.get(name, frozenset())
+        s["max_stroke"] = round(max(strokes.values()), 3)
+        s["min_piece_gap"] = _finite_min(d for c, d in gaps.items() if c not in designed)
+        s["exempt_piece_gaps"] = {c: round(gaps[c], 3) for c in sorted(designed) if gaps.get(c, math.inf) != math.inf}
+        report["spec_sets"][name] = s
+        failures += [f"spec set {name}:{c}" for c in s["fail"]]
+        failures += [f"spec set {name}:{c} stroke {t:.3f}w over {MAX_T}w" for c, t in strokes.items() if t > MAX_T]
+        failures += [f"spec set {name}:{c} pieces {d:.3f}w apart" for c, d in gaps.items() if d < LINE_MIN and c not in designed]
 
     fonts = HERE / "fonts"
     report["fonts"] = build_all(fonts)
     setters = {"Fillaprint": (kerned, "Fillaprint-Regular.ttf"), "Fillaprint Tab": (mixed, "FillaprintTab-Regular.ttf"),
                "Fillaprint Mono": (tabular, "FillaprintMono-Regular.ttf")}
+    inputs = finish_inputs()
     for family, (setter, fname) in setters.items():
         reader = FontReader(fonts / fname)
         # the fonts are built from the finished full sets (spec sets plus the review rounds' redesigns)
@@ -77,8 +117,17 @@ def main():
             dev[c] = out.boundary.hausdorff_distance(affinity.translate(g.geom, a.x - b.x, a.y - b.y).boundary)
         s = _summary(res)
         s["max_outline_deviation"] = round(max(dev.values()), 4)
+        gaps = {c: piece_gap(g.geom) for c, g in source.items()}
+        fused = fused_pieces(source, inputs[FAMILY_SET[family]])
+        designed = FUSED_BY_DESIGN.get(FAMILY_SET[family], frozenset())
+        s["min_piece_gap"] = _finite_min(gaps.values())
+        s["joined_by_finishing"] = sorted(fused)
         report["fonts"][family]["readback_glyphs"] = s
-        failures += [f"{family} outline {c}" for c in s["fail"]]
+        failures += [f"{family} readback {c}" for c in s["fail"]]
+        failures += [f"{family} readback {c} {v['thickness']}w thick, over {SHIPPED_MAX_T}w" for c, v in res.items()
+                     if v["thickness"] > SHIPPED_MAX_T]
+        failures += [f"{family} {c}: pieces {d:.3f}w apart" for c, d in gaps.items() if d < LINE_MIN]
+        failures += [f"{family} {c}: finishing joined pieces {n}" for c, n in fused.items() if c not in designed]
         failures += [f"{family} outline {c} deviates {d:.3f}w" for c, d in dev.items() if d > OUTLINE_TOL]
         report["lines"][family] = {}
         for text in LINES:
@@ -111,15 +160,16 @@ def main():
 
     report["failures"] = failures
     (HERE / "report.json").write_text(json.dumps(report, indent=1, default=str))
-    for name, s in report["glyphs"].items():
-        print(f"glyphs {name:4s} max {s['max_thickness']} ({s['max_at']}), others <= {s['others_max']}, thin {s['thin'] or 'none'}")
+    for name, s in report["spec_sets"].items():
+        print(_spec_line(name, s))
     for family, f in report["fonts"].items():
         rb = f["readback_glyphs"]
         worst = min(report["lines"][family].values(), key=lambda e: e["ttf_min_gap"])
         dev = max(e["ttf_gap_dev"] for e in report["lines"][family].values())
         drift = max(e["ttf_drift"] for e in report["lines"][family].values())
-        print(f"{family:15s} {f['glyphs']} glyphs, {f.get('class_pairs', 0)} class pairs + {f.get('exceptions', 0)} exceptions | outlines within "
-              f"{rb['max_outline_deviation']}w, max {rb['max_thickness']}, thin {rb['thin'] or 'none'} | lines min gap "
+        print(f"{family:15s} {f['glyphs']} glyphs, {f.get('class_pairs', 0)} class pairs + {f.get('exceptions', 0)} exceptions | readback within "
+              f"{rb['max_outline_deviation']}w, max {rb['max_thickness']}, thin {rb['thin'] or 'none'} | {_pieces_text(rb)}, "
+              f"joined {''.join(rb['joined_by_finishing']) or 'none'} | lines min gap "
               f"{worst['ttf_min_gap']}, gap dev <= {dev}, drift <= {drift}")
     print("FAIL:\n  " + "\n  ".join(failures) if failures else "all checks pass")
     return 1 if failures else 0

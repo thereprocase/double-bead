@@ -1,5 +1,9 @@
 # Changelog
 
+<!-- Each release heading is "## [Unreleased — ]v<RELEASE> (OpenType <VERSION>)", matching
+     beadjoint/release.py's RELEASE and VERSION; tests/test_release.py parses the topmost one.
+     Rename "Unreleased" to the tagged release once it ships; never renumber a shipped entry. -->
+
 ## Unreleased — v0.1.1 beta (OpenType 0.101)
 
 ### Changed

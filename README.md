@@ -1,6 +1,6 @@
 # Fillaprint
 
-**v0.1.0 beta — fine-tuning for release.** Font shapes, spacing, and print behavior may change before 1.0. A future Nerd Fonts launch is a target; this beta is not part of Nerd Fonts.
+**v0.1.1 beta — fine-tuning for release.** Font shapes, spacing, and print behavior may change before 1.0. A future Nerd Fonts launch is a target; this beta is not part of Nerd Fonts.
 
 
 **A typeface for FDM 3D printing. Strokes and gaps use the same minimum width.**
@@ -57,7 +57,7 @@ specimens, not photos of printed parts. I think this is obvious, but maybe not t
 | [**Fillaprint Tab**](fonts/FillaprintTab-Regular.ttf?raw=true) | Numbers in columns | Letter widths vary; digits have equal widths |
 | [**Fillaprint Mono**](fonts/FillaprintMono-Regular.ttf?raw=true) | Fixed-width layouts | Every character uses a 12w cell |
 
-[Download all three fonts and the license as a ZIP](https://thereprocase.github.io/fillaprint/downloads/Fillaprint-0.1.0-beta.zip).
+[Download all three fonts and the license as a ZIP](https://thereprocase.github.io/fillaprint/downloads/Fillaprint-0.1.1-beta.zip).
 
 Open a TTF file in your system's font installer. On Windows, you can also
 right-click it and choose **Install**. Restart your CAD or design app if the font
@@ -77,6 +77,8 @@ as a digit.
 The fonts cover ASCII, Latin-1, Latin Extended-A, Romanian comma-below letters,
 extra Welsh accents, capital ẞ, curly quotes, fractions, currency signs, arrows,
 and selected math symbols. They do not cover full Greek or Cyrillic alphabets.
+Romanian and Latvian text can need wider line spacing; see
+[Choose a print size](#choose-a-print-size).
 
 [All characters](showcase/2-all-glyphs.png) ·
 [Language samples](showcase/3-languages.png) ·
@@ -101,8 +103,15 @@ convert an **H** to outlines and measure its height.
 
 Increasing the text size widens both strokes and gaps and may add extrusion
 paths. Below the reference size, their minimum widths are less than two
-extrusion widths. The default line spacing accommodates accents and letters
-that extend below the baseline.
+extrusion widths.
+
+The default line spacing keeps accents and descenders on neighbouring lines at
+least 2w apart, with one exception. The Romanian and Latvian comma-below letters
+Ģ Ķ ķ Ļ ļ Ņ ņ Ŗ ŗ Ţ ţ Ș ș Ț ț reach 2.6w lower than other descenders. Above a
+letter with a tall accent on the next line, such as Å, Ă, Á, Â or Š, the gap can
+fall below 2w, and ș can touch Å. For text that can stack them, set the baselines
+**30.6 × w** apart: 9.79 mm at w = 0.32 mm, 12.85 mm at w = 0.42 mm, or about
+1.1 times the default spacing.
 
 [Size calculator](https://thereprocase.github.io/fillaprint/#size) ·
 [Print settings and sizing details](docs/PRINTING.md)

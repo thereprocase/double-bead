@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT))
 from beadjoint.charset import CHARS  # noqa: E402
 from beadjoint.glyphs import pieces  # noqa: E402
 from beadjoint.readback import FontReader  # noqa: E402
+from beadjoint.release import VERSION  # noqa: E402
 
 OUT = ROOT / "showcase"
 BODY, INK, CAP, GUIDE = (27, 29, 32), (244, 194, 13), (143, 153, 163), (48, 52, 58)
@@ -104,7 +105,7 @@ def hero():
     for s, em in lines:
         text(d, "Fillaprint", s, pad, y, em)
         y += em * 1.4 + 6
-    caption(d, (pad + 6, 890), "Set with Fillaprint-Regular.ttf v0.101, kerning from the file. Size: Fusion Height = 14 × line "
+    caption(d, (pad + 6, 890), f"Set with Fillaprint-Regular.ttf v{VERSION}, kerning from the file. Size: Fusion Height = 14 × line "
             "width (4.48 mm at 0.32 mm).", 15)
     save(im, "1-double-bead.png")
 
@@ -212,14 +213,16 @@ def printed():
     rows = (len(tiles) + cols - 1) // cols
     im = Image.new("RGB", (cols * cw + (cols + 1) * pad, head + rows * (th + pad + 26) + pad), BODY)
     d = ImageDraw.Draw(im)
+    # This canvas isn't supersampled like canvas()/save() elsewhere in this file, so undo
+    # ui()'s SS multiply here to keep the same visual text size.
     d.text((pad, 20), "Sliced: Orca Arachne toolpaths at 0.32 mm, top face of the demo coupon "
            "(yellow = colour beads, grey = body beads, blue = design outline, white = no bead on this layer)", fill=(230, 232, 235),
-           font=ImageFont.truetype("segoeuib.ttf", 20))
+           font=ui(20 / SS, bold=True))
     for i, (c, t) in enumerate(zip(pick, tiles)):
         x = pad + (i % cols) * (cw + pad)
         y = head + (i // cols) * (th + pad + 26)
         im.paste(t, (x, y))
-        d.text((x, y + t.height + 4), f"{c}  U+{ord(c):04X}", fill=CAP, font=ImageFont.truetype("segoeui.ttf", 15))
+        d.text((x, y + t.height + 4), f"{c}  U+{ord(c):04X}", fill=CAP, font=ui(15 / SS))
     OUT.mkdir(exist_ok=True)
     im.save(OUT / "6-sliced.png", optimize=True)
     print("6-sliced.png", im.size)

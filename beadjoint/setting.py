@@ -12,6 +12,7 @@ from shapely.geometry import LineString
 
 from .charset import ALIASES, full_m, full_mixed, full_p
 from .glyphs import FIGURES
+from .verify import LINE_MIN
 
 T = 2.4          # optical target gap = stem-to-stem gap
 DEPTH = 3.0      # scanline cap = T + DEPTH
@@ -19,8 +20,14 @@ GAPMIN = 2.02     # hard true-distance floor: R9 says 2.0; +0.02 so a TTF (outli
                  # still passes the spec's 1.98 line check
 WORD = 5.5       # word space, edge to edge (edges: see _edges)
 WORD_FLOOR = 3.5 # true distance from a word to the whole previous word (Frodo r1)
-CELL_M = 12      # monospace advance (= width(m) 10 + GAPMIN)
-CELL_F = 9       # tabular figure advance (= 7 + GAPMIN)
+# The cells are not ink width + GAPMIN: between the widest glyphs they leave 2.00w (Mono) and 1.98w
+# (Tab, at the FIGURE_MAX digit budget; 2.00w at today's 7w digits), without GAPMIN's 0.02 for
+# outline rounding. That is acceptable because both meet the spec's 1.98 line check, the cells are
+# whole font units (600, 450) so every glyph in them is rounded alike (Mono's widest read back as
+# 50..550 of 600), and the build checks the set lines read back from each TTF.
+CELL_M = 12      # monospace advance: ink up to MONO_MAX = 10w (width(m)) leaves 2.00w
+CELL_F = 9       # tabular figure advance
+FIGURE_MAX = CELL_F - LINE_MIN   # 7.02: the widest Tab digit ink that leaves the 1.98 line check between cells
 N_SCAN = 101
 BAND_X = (0.0, 10.0)
 BAND_FIG = (-4.0, 10.0)
@@ -194,7 +201,8 @@ def tabular(text, glyphs=None):
 
 def mixed(text, glyphs=None):
     """Letters from P, figures from P with 1 -> 1ₜ: runs of figures on CELL_F cells, joined to
-    letters by off(). A run after a space starts its first cell at the word-space edge."""
+    letters by off(). A run after a space starts like any word: its first figure's edge (not its
+    cell's) sits WORD past the previous word's edge."""
     glyphs = glyphs or full_mixed()
     text = _prepare(text, glyphs)
     line, prev, prev_x, space, i, word = [], None, 0.0, 0, 0, []

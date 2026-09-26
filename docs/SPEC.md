@@ -87,7 +87,44 @@ solve(build):          find vy by bisection on [9.5, 16] such that max_y(build(v
 ```
 soft(g) = (g ⊖ 0.5) ⊕ 0.5        # morphological opening, r = 0.5w
 ```
-Applied to every glyph in every set. Leaves balls and R ≥ 0.5 corners untouched.
+Applied to every glyph of the spec sets (§7, §8). Leaves balls and R ≥ 0.5 corners untouched.
+
+The font families finish every glyph, base glyphs and composites alike, with `finish`
+(`beadjoint/geom.py`, applied in `beadjoint/charset.py`): pinches filled, inside corners
+rounded, then `soft`.
+
+```
+finish(g) = soft(fillet_inside(fill_pinches(g)))
+
+fill_pinches(g)    tight = ((g ⊕ PINCH_R) ⊖ PINCH_R) − g, eroded 0.03
+                   every tight piece with area > PINCH_MIN_AREA becomes ink
+                   PINCH_R = 0.98, PINCH_MIN_AREA = 0.5 w²
+fillet_inside(g)   notch = ((g ⊕ 0.5) ⊖ 0.5) − g
+                   each notch piece becomes ink unless it is small and open:
+                   area ≤ FILLET_MIN_AREA and mouth to the negative space > 1.2 √area
+                   FILLET_MIN_AREA = 0.1 w²
+```
+
+- **PINCH_R = 0.98.** Negative space narrower than 1.96w is a pinch. Two beads of body
+  colour cannot print a narrower slit, so it is filled with letter colour instead of being
+  left for the slicer to drop or smear. Acute wedges (the N, v, k, x, y, z joints) and
+  near-touching pieces fill. Counters, apertures and gaps of 2w or more stay open. The radius
+  sits just under 1 for the same reason as the thin check's (§11).
+- **PINCH_MIN_AREA = 0.5 w².** The size filter of §11's tight pieces. A plain 90° inside
+  corner (0.2 w²) stays open. The 0.03 erosion comes first so hairline slivers cannot join
+  pieces.
+- **FILLET_MIN_AREA = 0.1 w².** Inside corners get R0.5 only where the fill seals a notch,
+  slit or pinhole. An open right-angle or obtuse corner (a small piece with a wide mouth) stays
+  sharp. Filling those swelled every crossing from 2.83 to 3.22w and every T from 2.5 to
+  2.75w, and the one-wall top layer printed that as 0.52 mm beads pushing colour 0.1 mm past
+  the outline.
+
+Filled joins are solid ink by design and measure over R2's 2.85: N 4.54w, v 4.26w, the
+arrows 4.84w. The build caps the families' ink at `SHIPPED_MAX_T` = 4.85w and checks that
+finishing joins no pieces its input kept apart (§11). One join is designed: the spec's Mono k
+(§8) stops its arm 0.25w short of the stem, and finishing fills that notch tip, as R3 allows
+at acute joins. The glyph tuner warns when an edit makes `fill_pinches` add more than 0.5 w²
+over the original glyph.
 
 ## 7. Proportional glyphs (set P)
 
@@ -173,11 +210,20 @@ Tabular "1" for the mixed setting (7w wide, fits the 9w figure cell):
 ```
 T      = 2.4     # optical target gap = stem-to-stem gap
 DEPTH  = 3.0     # scanline cap = T + DEPTH
-GAPMIN = 2.0     # hard true-distance floor (R9)
-WORD   = 5.5     # ink-to-ink word space
-CELL_M = 12      # monospace advance  (= width(m) 10 + GAPMIN)
-CELL_F = 9       # tabular figure advance (= 7 + GAPMIN)
+GAPMIN = 2.02    # hard true-distance floor: R9's 2.0 + 0.02 for outlines rounded to 1/50 w
+WORD   = 5.5     # word space, between word-space edges
+WORD_FLOOR = 3.5 # true distance from a word to the whole previous word
+CELL_M = 12      # monospace advance: ink ≤ width(m) = 10 leaves 2.00 between cells
+CELL_F = 9       # tabular figure advance
+FIGURE_MAX = 7.02  # CELL_F − 1.98: digits up to this wide leave 1.98 (7 today: 2.00)
 ```
+
+GAPMIN's 0.02 lets a TTF, whose outlines are rounded to 1/50 w, still pass the 1.98 line
+check (§11). The cells do not carry that margin: they leave 2.00 and 1.98, which meet the line
+check. The build checks every setting's lines as read back from each TTF.
+
+Word-space edges: halfway between a glyph's ink edge inside y ∈ [-4,10] and its bbox edge, so a
+descender overhang (j hook, ogonek) counts half and a cap-zone one fully.
 
 Optical pair offset (origin of B relative to origin of A):
 
@@ -196,7 +242,8 @@ Kerned setting (set P):
 
 ```
 x_B = x_A + off(A,B)
-after a space: place next ink edge WORD past the previous ink edge
+after a space: place the next glyph's left word-space edge WORD past the rightmost right
+               word-space edge of the previous word, then ≥ WORD_FLOOR from all of that word
 ```
 
 Tabular setting (set M):
@@ -211,7 +258,9 @@ Mixed setting (letters from P, figures from P with 1 → 1ₜ):
 ```
 figure run d0..dn:  cell_origin(k,d) = k*CELL_F + (CELL_F - bboxW(d))/2 - bbox_minx(d)
   run start after letter L:  run0 = x_L + off(L, d0) - cell_origin(0, d0)
-  run start after space/BOL: run0 = current edge
+  run start at line start:   run0 = 0
+  run start after a space:   as any glyph after a space: the edge of d0 (not of its cell)
+                             sits WORD past the previous word's edge
   figure k at run0 + cell_origin(k, dk)
 letter after figure d:       x = x_d + off(d, letter)
 ```
@@ -227,21 +276,48 @@ advance(X) = lsb(X) + bboxW(X) + rsb(X)
 kern(A,B)  = inkgap(A,B) - rsb(A) - lsb(B)      # drop |kern| < 0.1w
 ```
 
-Monospace font: every advance = CELL_M, glyph centred. Tabular figures: advance = CELL_F, kerning disabled between figures.
+Monospace font: every advance = CELL_M, glyph centred, .notdef included (Mono draws the
+characters it leaves out as .notdef); post.isFixedPitch = 1 and OS/2 PANOSE family kind 2
+(Latin Text) with proportion 9 (monospaced). Tabular figures: advance = CELL_F, kerning
+disabled between figures. Every font: the lsb stored in hmtx is the rounded outline's xMin;
+.notdef is an 8w × 14w box with 2w walls (R1).
 
 ## 11. Verification
 
 ```
 raster at 40 px/w
-thickness(g)  = 2 * max(EDT(g)) / 40                      require ≤ 2.85 (2.83 at crossings)
-thin(g)       = pieces of g − ((g ⊖ 0.98) ⊕ 0.98), eroded 0.03, area > 0.5   require none
-tight(g)      = pieces of ((g ⊕ 0.98) ⊖ 0.98) − g, same filter                 informational
-line check    = dist(neighbour_i, neighbour_i+1) ≥ 1.98 for every set line
+thickness(g)  = 2 * max(EDT(g)) / 40, per separate piece of ink
+dot           = a piece whose area is under 1.1 × that of its inscribed disk (R11)
+thin(g)       = pieces of g − ((g ⊖ 0.98) ⊕ 0.98), eroded 0.03, area > 0.5
+tight(g)      = pieces of ((g ⊕ 0.98) ⊖ 0.98) − g, same filter
+islands(g)    = tight pieces enclosed by ink
+piece gap(g)  = smallest true distance between separate pieces of g
+line check    = dist(glyph_i, glyph_j) for the next three glyphs j of a set line
 ```
 
 Note: opening at exactly r = 1 deletes exact-2w strokes; the check radius must sit below 1.
 
-Reference results: P max 2.97 (the R11 dots of i, j and the other dotted glyphs; stroke-only glyphs max 2.83 at f, t crossings); M max 2.97; no thin pieces; no neighbour gaps under 2w in any setting.
+`python build.py` exits 1 unless all of these hold (`beadjoint/verify.py` holds the limits):
+
+- **Spec sets** P, M and 1ₜ (§7, §8 and the extension glyphs, `soft` only): thickness ≤ 2.85
+  for every piece that is not a dot (R2); no thin pieces; no islands; piece gap ≥ 1.98, except
+  M's k, whose notch tip only the families' finishing fills (§6).
+- **Font families** Fillaprint, Tab and Mono (`finish`, §6), from the source: piece gap ≥ 1.98,
+  and finishing joins no pieces its input kept apart, except Mono's k (`FUSED_BY_DESIGN`).
+- **Font families as read back from each TTF:** outlines within 1.5 font units of the source;
+  thickness ≤ `SHIPPED_MAX_T` = 4.85 (filled joins; the arrow tips set the maximum, 4.84); no
+  thin pieces (checked at radius 0.98 − 0.02, one font unit) and no islands.
+- **Set lines** in all three settings, from the source and from each TTF: line check ≥ 1.98;
+  and from each TTF, every neighbour gap within 0.13 of the setting engine.
+
+Informational, in `report.json`: tight pieces, thickness maxima and cumulative drift. The
+tests (`tests/test_beadjoint.py`) run the same checks and add the dot sizes, the line-spacing
+band (`docs/PRINTING.md`) and the TTF metrics.
+
+Reference results: spec sets P and M max 2.97 (the R11 dots of i, j and the other dotted
+glyphs; strokes max 2.83 at the f and t crossings), pieces ≥ 2.0 apart except M's k (0.25);
+font families max 4.84 (the arrow tips); no thin pieces; no neighbour gaps under 2w in any
+setting.
 
 ## 11a. Dots (R11)
 
@@ -263,13 +339,14 @@ baseline, `:` still spans the x-height), and moves away from its own stroke unti
 axis with their dot (`!`, `¡`, `i`) move with it so the pair stays centred.
 
 Mono exception: three 3w dots with 2w gaps need 13w of ink, over the 10w cell, so Mono's `…`
-keeps 2w dots (`full_m` in `beadjoint/charset.py`). `%`, `‰` and `•` were already larger
+keeps 2w dots (`mono_extras` in `beadjoint/latin.py`). `%`, `‰` and `•` were already larger
 (3.5w and 4w) and are unchanged.
 
 Tuning: change `DOT` in `beadjoint/geom.py` and the dot centres that depend on it (search
-`DOT` in `beadjoint/`), then run `python build.py`. The build fails if any dot comes closer
-than 2w to a stroke or a neighbouring glyph, or thins below the two-bead floor. Values from
-1.25 (2.5w) to 1.5 (3w) keep every dot in the 2- or 3-bead band.
+`DOT` in `beadjoint/`), then run `python build.py`. The build fails if a dot comes closer than
+1.98w to another piece of its glyph, if finishing fuses it with a stroke, if it thins below the
+two-bead floor, or if it comes closer than 1.98w to a neighbouring glyph in the checked lines
+(§11). Values from 1.25 (2.5w) to 1.5 (3w) keep every dot in the 2- or 3-bead band.
 
 ## 12. Not yet defined
 
