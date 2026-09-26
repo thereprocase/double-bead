@@ -8,6 +8,7 @@ built TTFs (outlines, metrics, set lines and license metadata read back). The TT
 committed fonts: rebuild them (python build.py) after changing the sources.
 """
 import math
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -274,6 +275,10 @@ class LineSpacing(unittest.TestCase):
             text = doc.read_text(encoding="utf-8")
             self.assertIn(f"{self.CLEAR_PITCH:g} × w", text, doc.name)
             self.assertIn(" ".join(self.COMMA_BELOW), text, doc.name)
+        # the browser specimen's size calculator: one row per pitch, in line widths times u
+        js = (ROOT / "site" / "template" / "app.js").read_text(encoding="utf-8")
+        rows = re.findall(r'\["Line pitch[^"]*", ([\d.]+) \* u,', js)
+        self.assertEqual(sorted(float(v) for v in rows), [self.PITCH, self.CLEAR_PITCH])
 
 
 FAMILIES = (("Fillaprint-Regular.ttf", full_p), ("FillaprintTab-Regular.ttf", full_mixed),
