@@ -1,18 +1,23 @@
 """Contribution safety and actual source → edited geometry → Git patch round trips."""
 import ast
+import contextlib
 import copy
 import errno
 import functools
 import http.client
+import io
 import json
+import math
 import os
 from pathlib import Path
+import shutil
 import socket
 import subprocess
 import sys
 import tempfile
 import threading
 import time
+import types
 import unittest
 from unittest import mock
 from urllib.error import HTTPError
@@ -20,11 +25,14 @@ from urllib.request import Request, urlopen
 
 from beadjoint import charset, geom, glyphs, latin, verify
 from tuner import serve
-from tuner.model import ACCENTS, FUNCTIONS, ROOT, SHARED, SOURCE_PATHS, Catalog, TunerError, number, source_commit
+from tuner.model import (ACCENTS, COMMIT, FUNCTIONS, ROOT, SHARED, SOURCE_PATHS, Catalog, TunerError, number,
+                         source_commit)
 from tuner.serve import MAX_BODY, Handler, TunerServer
-from tuner.worker import CACHE_ENV, Beadjoint, absent, explain, fill_change
+from tuner.worker import (CACHE_ENV, CACHE_SECRET_ENV, Beadjoint, FinishedCache, absent, explain, fill_change, finite,
+                          finishing_fingerprint, options)
 
 HEX = "0123456789abcdef0123456789abcdef01234567"
+TEST_SECRET = "5e" * 32     # a fixed per-test-run cache secret; the server draws a random one
 
 
 @functools.cache
@@ -33,10 +41,11 @@ def catalog():
     return Catalog()
 
 
-def copy_sources(root):
-    for name, source in catalog().sources.items():
+def copy_sources(root, paths=None):
+    """Copy the editable sources (or every file a preview reads) under root."""
+    for name in paths or catalog().sources:
         (root / name).parent.mkdir(parents=True, exist_ok=True)
-        (root / name).write_bytes(source)
+        (root / name).write_bytes(catalog().inputs[name])
 
 
 def target(char, group):
@@ -51,10 +60,37 @@ def new_session():
     return {"schema": 1, "sources": dict(catalog().hashes), "values": {}}
 
 
+def worker_env(directory=None):
+    """The environment the server gives its workers: a cache directory and its secret, or neither."""
+    env = {k: v for k, v in os.environ.items() if k not in (CACHE_ENV, CACHE_SECRET_ENV)}
+    if directory:
+        env.update({CACHE_ENV: directory, CACHE_SECRET_ENV: TEST_SECRET})
+    return env
+
+
 def run_worker(request, env=None, timeout=300):
     process = subprocess.run([sys.executable, "-m", "tuner.worker"], input=json.dumps(request), text=True,
-                             capture_output=True, cwd=ROOT, timeout=timeout, env=env)
+                             capture_output=True, cwd=ROOT, timeout=timeout, env=env or worker_env())
     return process, json.loads(process.stdout)
+
+
+def git(root, *args):
+    return subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "-c", "user.name=repro",
+                           "-c", "user.email=repro@local", *args], cwd=root, capture_output=True, text=True, check=True)
+
+
+def build_error(values):
+    """explain() for the exception _raw_p raises with edits to glyphs.py, compiled as the worker does."""
+    session = new_session()
+    session["values"].update(values)
+    source = catalog().edited_sources(session)["beadjoint/glyphs.py"]
+    namespace = {"__name__": "beadjoint.edited_for_test", "__package__": "beadjoint"}
+    exec(compile(source, "beadjoint/glyphs.py", "exec"), namespace)
+    try:            # not assertRaises: it drops the traceback that locates the construction
+        namespace["_raw_p"]()
+    except ValueError as exc:
+        return explain(exc, catalog())
+    raise AssertionError("the edited glyphs should not build")
 
 
 class SourceEditing(unittest.TestCase):
@@ -107,10 +143,12 @@ class SourceEditing(unittest.TestCase):
 
     def test_rejects_code_nonfinite_out_of_range_and_unknown_slots(self):
         s = target("a", "Base")["slots"][0]
-        for value in ("__import__('os')", float("nan"), float("inf"), True, 100):
+        # 10**400 would overflow math.isfinite; it must be refused like any other out-of-range value.
+        for value in ("__import__('os')", float("nan"), float("inf"), True, 100, 10 ** 400, -10 ** 400):
             self.session["values"] = {s["id"]: value}
-            with self.subTest(value=value), self.assertRaises(TunerError):
+            with self.subTest(value=str(value)[:20]), self.assertRaises(TunerError) as caught:
                 self.catalog.edited_sources(self.session)
+            self.assertEqual(caught.exception.code, "bad_session")
         self.session["values"] = {"../../other.py:1:0": 1}
         with self.assertRaises(TunerError):
             self.catalog.edited_sources(self.session)
@@ -161,12 +199,55 @@ class SourceEditing(unittest.TestCase):
         self.assertEqual(caught.exception.code, "sources_changed")
         self.assertIn("run: git switch --detach 0123456789ab, then restart the tuner", str(caught.exception))
 
-    def test_source_commit_is_head_only_for_matching_sources(self):
-        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
-        clean = subprocess.run(["git", "diff", "--quiet", "HEAD", "--", *SOURCE_PATHS], cwd=ROOT).returncode == 0
-        self.assertEqual(source_commit(ROOT), head if clean else None)
+    def test_any_module_a_preview_reads_counts_as_a_source_change(self):
+        # verify.LINE_MIN is not an editable file, but changing it changes every check.
         with tempfile.TemporaryDirectory() as directory:
-            self.assertIsNone(source_commit(directory))
+            root = Path(directory)
+            copy_sources(root, catalog().inputs)
+            c = Catalog(root, families=False)
+            c.assert_fresh()
+            path = root / "beadjoint/verify.py"
+            path.write_bytes(path.read_bytes().replace(b"LINE_MIN = 1.98", b"LINE_MIN = 2.5"))
+            with self.assertRaisesRegex(TunerError, "beadjoint/verify.py changed on disk"):
+                c.assert_fresh()
+            (root / "beadjoint/verify.py").unlink()
+            with self.assertRaisesRegex(TunerError, "beadjoint/verify.py changed"):
+                c.assert_fresh()
+
+    def test_every_module_the_worker_imports_is_watched(self):
+        script = ("import sys\nfrom tuner.worker import Beadjoint\nBeadjoint()\n"
+                  "print('\\n'.join(m.__file__ for n, m in sys.modules.items() if n.split('.')[0] in ('beadjoint', 'tuner')))")
+        process = subprocess.run([sys.executable, "-c", script], text=True, capture_output=True, cwd=ROOT, check=True)
+        imported = {Path(f).resolve().relative_to(ROOT).as_posix() for f in process.stdout.split()}
+        self.assertIn("beadjoint/setting.py", imported)
+        self.assertLessEqual(imported, set(catalog().inputs))
+
+
+class SourceCommit(unittest.TestCase):
+    def test_this_checkout(self):
+        paths = [p for p in catalog().inputs if p.startswith("beadjoint/")]
+        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+        clean = subprocess.run(["git", "diff", "--quiet", "HEAD", "--", *paths], cwd=ROOT).returncode == 0
+        self.assertEqual(source_commit(ROOT, paths), head if clean else None)
+        self.assertIsNone(source_commit(ROOT / "beadjoint", ["glyphs.py"]), "root must be the top of the checkout")
+
+    def test_only_a_clean_tracked_checkout_at_root_names_a_commit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = ["beadjoint/glyphs.py", "beadjoint/verify.py"]
+            copy_sources(root, paths)
+            self.assertIsNone(source_commit(root, paths), "not a Git checkout")
+            git(root, "-c", "init.defaultBranch=main", "init", "-q")
+            git(root, "add", "beadjoint/glyphs.py")
+            git(root, "commit", "-q", "-m", "sources")
+            self.assertIsNone(source_commit(root, paths), "verify.py is untracked")
+            git(root, "add", "beadjoint/verify.py")
+            git(root, "commit", "-q", "-m", "verify")
+            commit = source_commit(root, paths)
+            self.assertRegex(commit, COMMIT)
+            self.assertEqual(commit, git(root, "rev-parse", "HEAD").stdout.strip())
+            (root / "beadjoint/verify.py").write_text("LINE_MIN = 2.5\n")
+            self.assertIsNone(source_commit(root, paths), "uncommitted change")
 
 
 class CatalogStructure(unittest.TestCase):
@@ -225,9 +306,14 @@ class CatalogStructure(unittest.TestCase):
         self.assert_refused("beadjoint/marks.py", b'"breve":', b'"brevis":', "no preview character")
         self.assert_refused("beadjoint/geom.py", b"\nDOT = ", b"\nDOT_R = ", "DOT")
 
-    def test_construction_without_parameters_stops_the_tuner(self):
+    def test_constructions_without_literal_numbers_stop_the_tuner(self):
         self.assert_refused("beadjoint/latin.py", b"def square_w():", b"def square_w():\n    return None\n\n\ndef _w():",
                             "square_w()")
+        self.assert_refused("beadjoint/geom.py", b"\nDOT = 1.5 ", b"\nDOT = 3 / 2 ", "no literal numbers the tuner can edit: DOT")
+        self.assert_refused("beadjoint/latin.py", b"frac_slash = diagonal(0.9, 10, 4.9, -4)", b"frac_slash = diagonal(*FRAC)",
+                            "frac_slash in symbols()")
+        self.assert_refused("beadjoint/marks.py", b'"grave": S((0, 0, B), (2.2, 2.4, B)),', b'"grave": S(*GRAVE),',
+                            "marks.SHAPES['grave']")
 
     def test_replaced_constructions_are_dropped(self):
         c = catalog()
@@ -236,17 +322,17 @@ class CatalogStructure(unittest.TestCase):
         for group, char in expected:
             self.assertFalse([t for t in c.targets if (t["group"], t["char"]) == (group, char)])
         self.assertTrue([t for t in c.targets if (t["group"], t["char"]) == ("Footed 1", "1")])
+        self.assertTrue([t for t in c.targets if (t["group"], t["char"]) == ("Shared w", "w")])
 
     @staticmethod
     def raw_outputs():
         """Each construction function's output, called as charset calls it (independent of tuner/model.py)."""
         p = glyphs._raw_p()
         cap, sym = latin.capitals(), latin.symbols(p)
-        out = {"_raw_p": p, "capitals": cap, "symbols": sym, "specials": latin.specials(p, cap, sym),
-               "mono_narrow": latin.mono_narrow(), "_raw_m_rebuilt": glyphs._raw_m_rebuilt(),
-               "_raw_one_tabular": glyphs._raw_one_tabular(), "square_w": latin.square_w(),
-               "_pointed_m": latin._pointed_m(), "extras": latin.extras(), "mono_extras": latin.mono_extras()}
-        return out
+        return {"_raw_p": p, "capitals": cap, "symbols": sym, "specials": latin.specials(p, cap, sym),
+                "mono_narrow": latin.mono_narrow(), "_raw_m_rebuilt": glyphs._raw_m_rebuilt(),
+                "_raw_one_tabular": glyphs._raw_one_tabular(), "square_w": latin.square_w(),
+                "_pointed_m": latin._pointed_m(), "extras": latin.extras(), "mono_extras": latin.mono_extras()}
 
     def constructions(self, family):
         """(target, raw output) for every whole-glyph construction of a family."""
@@ -321,23 +407,27 @@ class WorkerLogic(unittest.TestCase):
 
     def test_absent_glyphs_are_explained_per_family(self):
         bj = Beadjoint()
-        self.assertEqual(absent(bj, "M", ["©"]), "Mono has no ©: wider than Mono's 10w limit.")
-        self.assertEqual(absent(bj, "P", ["x"]), "Proportional has no x.")
+        self.assertEqual(absent(bj, "M", ["©"]), "Mono doesn't include ©: wider than Mono's 10w limit.")
+        self.assertEqual(absent(bj, "P", ["x"]), "Proportional doesn't include x.")
+
+    def test_request_characters(self):
+        bj = Beadjoint()
+        for request in ({"char": "\x07"}, {"char": "\ud800"}, {"char": "\x85"}, {"text": "a\x7fb"}, {"text": "a\u0000"}):
+            with self.subTest(request=request), self.assertRaises(TunerError) as caught:
+                options(request, bj)
+            self.assertEqual(caught.exception.code, "bad_request")
+        with self.assertRaises(TunerError) as caught:
+            options({"char": "‮"}, bj)
+        self.assertEqual(str(caught.exception), "Fillaprint has no glyph for U+202E.", "invisible characters by code only")
+        self.assertEqual(options({"char": "ñ", "text": "a b"}, bj), ("P", "ñ", "a b", False))
 
     def test_construction_errors_name_the_construction(self):
-        session = new_session()
-        session["values"][slot("n", "Base", "S1 point 2 corner radius")["id"]] = 8
-        source = catalog().edited_sources(session)["beadjoint/glyphs.py"]
-        namespace = {"__name__": "beadjoint.edited_for_test", "__package__": "beadjoint"}
-        exec(compile(source, "beadjoint/glyphs.py", "exec"), namespace)
-        try:            # not assertRaises: it drops the traceback that locates the construction
-            namespace["_raw_p"]()
-        except ValueError as exc:
-            message = explain(exc, catalog())
-        else:
-            self.fail("the edited n should not build")
+        message = build_error({slot("n", "Base", "S1 point 2 corner radius")["id"]: 8})
         self.assertEqual(message, "n (Base): the rounded corners at (1, 1) and (6, 1) together need 9w of a segment "
                                   "only 5w long. Reduce the corner radius or lengthen the segment.")
+        message = build_error({slot("n", "Base", "S1 point 3 x")["id"]: 1})
+        self.assertEqual(message, "n (Base): the point at (1, 1) sits on the point next to it, so the stroke has no "
+                                  "direction there. Move one of them.")
 
     def test_other_errors_have_plain_messages(self):
         for exc in (ZeroDivisionError("float division by zero"), RuntimeError("GEOS: TopologyException"),
@@ -348,8 +438,103 @@ class WorkerLogic(unittest.TestCase):
                 self.assertNotIn(type(exc).__name__, message)
                 self.assertNotIn(str(exc), message)
 
+    def test_non_finite_numbers_become_null(self):
+        with contextlib.redirect_stderr(io.StringIO()) as log:
+            self.assertEqual(finite({"a": [1.5, math.nan], "b": (math.inf,), "c": "nan"}), {"a": [1.5, None], "b": [None], "c": "nan"})
+        self.assertIn("result.a[1]", log.getvalue())
+
+    def test_finishing_fingerprint(self):
+        fingerprint = finishing_fingerprint(geom)
+        script = "from beadjoint import geom\nfrom tuner.worker import finishing_fingerprint\nprint(finishing_fingerprint(geom).hex())"
+        for seed in ("1", "2"):      # constants that are sets must not make it vary between workers
+            process = subprocess.run([sys.executable, "-c", script], text=True, capture_output=True, cwd=ROOT, check=True,
+                                     env={**os.environ, "PYTHONHASHSEED": seed})
+            self.assertEqual(process.stdout.strip(), fingerprint.hex())
+        source = catalog().sources["beadjoint/geom.py"]
+
+        def compiled(old, new):
+            self.assertIn(old, source)
+            module = types.ModuleType("geom_under_test")
+            exec(compile(source.replace(old, new), "beadjoint/geom.py", "exec"), module.__dict__)
+            return finishing_fingerprint(module)
+
+        self.assertEqual(compiled(b"DOT = 1.5 ", b"DOT = 1.25 "), fingerprint, "an edited dot radius keeps the cache")
+        self.assertNotEqual(compiled(b"PINCH_R = 0.98", b"PINCH_R = 0.97"), fingerprint)
+        self.assertNotEqual(compiled(b"return soft(fillet_inside(fill_pinches(g)))", b"return soft(fill_pinches(g))"),
+                            fingerprint)
+
+
+class GlyphCache(unittest.TestCase):
+    SECRET = bytes.fromhex(TEST_SECRET)
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.dir = directory.name
+        self.shape = geom.D((0, 0), 2)
+        self.key = FinishedCache.key(b"fingerprint", self.shape)
+
+    def saved(self, *entries):
+        cache = FinishedCache(self.dir, self.SECRET)
+        for key, area, wkb, persist in entries:
+            cache.put(key, area, wkb, persist)
+        cache.save()
+        return Path(self.dir, "finished-v2.bin")
+
+    def test_round_trip(self):
+        volatile = FinishedCache.key(b"fingerprint", geom.D((5, 5)))
+        self.saved((self.key, 0.25, self.shape.wkb, True), (volatile, 1.0, geom.D((5, 5)).wkb, False))
+        area, shape = FinishedCache(self.dir, self.SECRET).get(self.key)
+        self.assertEqual((area, shape.wkb), (0.25, self.shape.wkb))
+        self.assertIsNone(FinishedCache(self.dir, self.SECRET).get(volatile), "edited results stay in memory")
+        self.assertNotEqual(FinishedCache.key(b"other finishing", self.shape), self.key)
+
+    def test_records_are_authenticated(self):
+        path = self.saved((self.key, 0.25, self.shape.wkb, True))
+        self.assertIsNone(FinishedCache(self.dir, b"another secret, another run").get(self.key))
+        self.assertEqual(FinishedCache(self.dir, None).entries, {}, "no secret: the file is not read")
+        self.assertIsNone(FinishedCache(None, self.SECRET).path, "no directory: nothing is written")
+        data = bytearray(path.read_bytes())
+        data[60] ^= 1           # one bit of the stored geometry
+        path.write_bytes(data)
+        self.assertIsNone(FinishedCache(self.dir, self.SECRET).get(self.key))
+
+    def test_damaged_files_are_ignored(self):
+        path = self.saved((self.key, 0.25, self.shape.wkb, True))
+        good = path.read_bytes()
+        for tail in (good[:-10], struct_record(b"\x01" * 32, 0.5, 10 ** 9), b"\x00" * 7):
+            path.write_bytes(good + tail)
+            with self.subTest(tail=tail[:8]):
+                cache = FinishedCache(self.dir, self.SECRET)
+                self.assertEqual(list(cache.entries), [self.key], "the intact record is kept")
+        path.write_bytes(good[:-1])
+        self.assertEqual(FinishedCache(self.dir, self.SECRET).entries, {})
+
+    def test_a_record_that_does_not_parse_is_a_miss(self):
+        self.saved((self.key, 0.25, b"not geometry", True))
+        cache = FinishedCache(self.dir, self.SECRET)
+        self.assertIn(self.key, cache.entries)
+        self.assertIsNone(cache.get(self.key))
+        self.assertNotIn(self.key, cache.entries)
+
+
+def struct_record(key, area, size):
+    from tuner.worker import _RECORD
+    return _RECORD.pack(key, area, size)
+
 
 class WorkerRuns(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # One glyph cache for these runs, as the server shares one between its workers: the first
+        # run finishes the unedited font and later ones read it back.
+        cls.cache = tempfile.mkdtemp(prefix="fillaprint-tuner-test-")
+        cls.env = worker_env(cls.cache)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.cache, ignore_errors=True)
+
     def setUp(self):
         self.session = new_session()
 
@@ -357,13 +542,17 @@ class WorkerRuns(unittest.TestCase):
         for label in labels:
             self.session["values"][slot(char, group, label)["id"]] = value
 
+    def run_ok(self, family, char, text, validate):
+        request = {"session": self.session, "family": family, "char": char, "text": text, "validate": validate}
+        process, result = run_worker(request, self.env)
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+        return result
+
     def test_edit_reaches_real_geometry_and_derived_accents(self):
         # Widen the right stem of n, preserving its width. This must flow into
         # accented n, Tab, and Mono's counter-widened n. Mono's rebuilt r stays put.
         self.edit("n", "Base", ("S1 point 3 x", "S1 point 4 x"), 6.5)
-        request = {"session": self.session, "family": "P", "char": "n", "text": "n ñ ņ 0123", "validate": True}
-        process, result = run_worker(request)
-        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+        result = self.run_ok("P", "n", "n ñ ņ 0123", True)
         self.assertNotEqual(result["before"], result["after"])
         self.assertAlmostEqual(result["width"], 7.5, places=2)
         self.assertEqual(result["failures"], [])
@@ -381,8 +570,7 @@ class WorkerRuns(unittest.TestCase):
         # glyph still passes the hard checks. The preview must say so rather than stay green.
         self.edit("n", "Base", ("S1 point 3 x", "S1 point 4 x"), 3.5)
         request = {"session": self.session, "family": "P", "char": "n", "text": "n", "validate": False}
-        plain = {k: v for k, v in os.environ.items() if k != CACHE_ENV}
-        process, result = run_worker(request, env=plain)
+        process, result = run_worker(request, worker_env())
         self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
         self.assertTrue(result["checks"]["ok"])
         self.assertTrue(result["fill"]["warn"])
@@ -391,19 +579,25 @@ class WorkerRuns(unittest.TestCase):
         # The first cached run stores the unedited font; the second reads it back.
         with tempfile.TemporaryDirectory() as directory:
             for _ in range(2):
-                process, cached = run_worker(request, env={**plain, CACHE_ENV: directory})
+                process, cached = run_worker(request, worker_env(directory))
                 self.assertEqual(process.returncode, 0, process.stderr)
                 self.assertEqual(cached, result)
-            self.assertTrue(os.listdir(directory))
+            self.assertEqual(os.listdir(directory), ["finished-v2.bin"])
+
+    def test_cache_hits_keep_their_fill(self):
+        # Ń is N (5.77 w² of fill in its acute joins) plus an acute. After an acute edit N is read
+        # back from the cache; its recorded fill must come with it, or Ń would seem to lose it.
+        self.edit("á", "Accent acute", ("S1 point 1 x",), 0.2)
+        fill = self.run_ok("P", "Ń", "Ń", False)["fill"]
+        self.assertGreater(fill["before"], 5)
+        self.assertEqual(fill, {"before": fill["before"], "after": fill["before"], "warn": False})
 
     def test_fill_warning_follows_the_dotless_base_of_accented_i_and_j(self):
         # Marks above sit on dotless ı and ȷ: a new fill in ȷ must reach ĵ, and moving the
         # dot of i must not be charged to í (its geometry does not change).
         self.edit("ȷ", "Specials", ("S1 point 3 y",), 10)
         self.edit("i", "Base", ("D2 point 1 y",), -2.2)
-        request = {"session": self.session, "family": "P", "char": "í", "text": "í ĵ", "validate": True}
-        process, result = run_worker(request)
-        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+        result = self.run_ok("P", "í", "í ĵ", True)
         self.assertFalse(result["fill"]["warn"])
         self.assertIn("P:ȷ", result["warnings"])
         self.assertIn("P:ĵ", result["warnings"])
@@ -414,14 +608,13 @@ class WorkerRuns(unittest.TestCase):
         # 9w digit cell. Both must be reported in one run, as objects the page can act on.
         self.edit("n", "Base", ("S1 point 3 x", "S1 point 4 x"), 7.5)
         self.edit("0", "Base", ("So1 point 2 x", "So1 point 3 x"), 7.5)
-        request = {"session": self.session, "family": "P", "char": "n", "text": "n0", "validate": True}
-        process, result = run_worker(request)
-        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+        result = self.run_ok("P", "n", "n0", True)
         for f in result["failures"]:
             self.assertEqual(set(f), {"family", "char", "code", "message"})
             self.assertNotIn("Beadjoint", f["message"])
-        failures = {(f["family"], f["char"], f["code"]) for f in result["failures"]}
-        self.assertLessEqual({("M", c, "disappeared") for c in "nñńņň"}, failures)
+        failures = {(f["family"], f["char"], f["code"]): f["message"] for f in result["failures"]}
+        self.assertLessEqual({("M", c, "disappeared") for c in "nñńņň"}, set(failures))
+        self.assertIn("(10.50w) than Mono's 10w limit", failures["M", "n", "disappeared"])
         self.assertIn(("T", "0", "tabular_width"), failures)
         changed = {(g["family"], g["char"]): g for g in result["changed"]}
         self.assertEqual(changed["M", "ñ"], {"family": "M", "char": "ñ", "checks": None, "fill_warn": False,
@@ -429,11 +622,42 @@ class WorkerRuns(unittest.TestCase):
         self.assertTrue(changed["T", "0"]["failed"])
         self.assertFalse(changed["P", "0"]["failed"])
 
+    def test_a_family_that_fails_to_build_does_not_stop_the_others(self):
+        self.edit("Ω", "Mono", ("S1 point 5 corner radius",), 8)
+        self.edit("b", "Base", ("S2 point 2 x", "S2 point 3 x"), 6.5)
+        result = self.run_ok("P", "b", "b", True)
+        failures = {(f["family"], f["char"], f["code"]): f["message"] for f in result["failures"]}
+        self.assertEqual(list(failures), [("M", "Ω", "error")])
+        self.assertTrue(failures["M", "Ω", "error"].startswith("Ω (Mono): the rounded corners"))
+        changed = {(g["family"], g["char"]) for g in result["changed"]}
+        self.assertLessEqual({("P", "b"), ("T", "b")}, changed)
+        self.assertFalse([c for c in changed if c[0] == "M"])
+
+    def test_emptied_glyphs_are_reported_not_fatal(self):
+        # A dot radius of 0 is in range and empties the period. Its bounds are NaN, which would
+        # break the preview line and JSON; it must be reported instead, as "no ink", not "too wide".
+        self.session["values"][target(".", "Global dot radius")["slots"][0]["id"]] = 0
+        result = self.run_ok("P", "a", "a.", True)
+        failures = {(f["family"], f["char"], f["code"]): f["message"] for f in result["failures"]}
+        self.assertEqual(failures["P", ".", "checks"], "Proportional .: the edit leaves no ink to print.")
+        self.assertEqual(failures["M", ".", "disappeared"], "Mono leaves out .: after this edit it has no ink to print.")
+        self.assertEqual(len(result["text_paths"]), 1, "the empty period is left out of the preview line")
+        changed = {(g["family"], g["char"]): g for g in result["changed"]}
+        self.assertEqual((changed["P", "."]["checks"], changed["P", "."]["failed"]), (None, True))
+
+    def test_a_glyph_an_edit_fits_into_mono_can_be_previewed(self):
+        self.edit("©", "Symbols", ("So1 point 2 x", "So1 point 3 x"), 9)
+        result = self.run_ok("M", "©", "a©", False)
+        self.assertEqual(result["before"], "", "Mono had no © before the edit")
+        self.assertAlmostEqual(result["width"], 10, places=2)
+
     def test_request_errors_are_plain(self):
         for request, code, text in (({"family": "X"}, "bad_request", "Proportional, Tab or Mono"),
+                                    ({"char": "\x07"}, "bad_request", "Choose one character"),
                                     ({"char": "Ж"}, "no_glyph", "Fillaprint has no glyph for Ж"),
-                                    ({"text": "Пa"}, "text_glyphs", "Fillaprint has no glyph for П")):
-            process, result = run_worker({"session": self.session, **request})
+                                    ({"text": "Пa"}, "text_glyphs", "Fillaprint has no glyph for П"),
+                                    ({"family": "M", "char": "©"}, "not_in_family", "Mono doesn't include ©: wider")):
+            process, result = run_worker({"session": self.session, **request}, self.env)
             with self.subTest(code=code):
                 self.assertEqual(process.returncode, 1)
                 self.assertEqual(result["code"], code)
@@ -454,6 +678,31 @@ class WorkerRuns(unittest.TestCase):
                   "        assert meter.finished[id(glyphs[accented].geom)][2] is glyphs[base].geom, accented\n")
         process = subprocess.run([sys.executable, "-c", script], text=True, capture_output=True, cwd=ROOT, timeout=300)
         self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+
+
+@contextlib.contextmanager
+def serving(server):
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def http_request(port, method, path, body=None, headers=()):
+    """(status, headers, parsed body) without urllib adding or checking anything."""
+    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=30)
+    try:
+        conn.request(method, path, body=body, headers=dict(headers))
+        response = conn.getresponse()
+        data = response.read()
+        json_body = response.headers.get_content_type() == "application/json" and data
+        return response.status, response.headers, json.loads(data) if json_body else data
+    finally:
+        conn.close()
 
 
 class LocalServer(unittest.TestCase):
@@ -477,21 +726,13 @@ class LocalServer(unittest.TestCase):
         return {"schema": 1, "sources": self.catalog["sources"], "values": {}}
 
     def request(self, method, path, body=None, headers=()):
-        """(status, headers, parsed body) without urllib adding or checking anything."""
-        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=30)
-        try:
-            conn.request(method, path, body=body, headers=dict(headers))
-            response = conn.getresponse()
-            data = response.read()
-            parsed = json.loads(data) if response.headers.get_content_type() == "application/json" else data
-            return response.status, response.headers, parsed
-        finally:
-            conn.close()
+        return http_request(self.port, method, path, body, headers)
 
     def post(self, payload, path="/api/preview"):
         headers = {"Content-Type": "application/json", "X-Tuner-Token": self.catalog["token"]}
-        status, _, body = self.request("POST", path, json.dumps(payload).encode(), headers)
-        return status, body
+        body = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
+        status, _, reply = self.request("POST", path, body, headers)
+        return status, reply
 
     def test_static_routes_and_headers(self):
         routes = {"/": "text/html; charset=utf-8", "/app.js": "text/javascript; charset=utf-8",
@@ -531,12 +772,20 @@ class LocalServer(unittest.TestCase):
                  ({"Content-Type": "application/json"}, b"{not json", 400, "bad_request"),
                  ({"Content-Type": "application/json"}, b"[1, 2]", 400, "bad_request"))
         for headers, body, status, code in cases:
-            with self.subTest(headers=headers, body=body):
+            with self.subTest(headers=headers, body=(body or b"")[:12]):
                 got, _, reply = self.request("POST", "/api/preview", body, {**token, **headers})
                 self.assertEqual((got, reply["code"]), (status, code))
 
+    def test_huge_numbers_are_a_session_error(self):
+        sid = self.catalog["targets"][0]["slots"][0]["id"]
+        body = json.dumps({"session": {**self.session(), "values": {sid: 0}}}).encode()
+        body = body.replace(b": 0}", b": " + b"7" * 400 + b"}")
+        status, reply = self.post(body)
+        self.assertEqual((status, reply["code"]), (400, "bad_session"))
+
     def test_catalog_reports_commit_and_composites(self):
-        self.assertEqual(self.catalog["commit"], source_commit(ROOT))
+        paths = [p for p in catalog().inputs if p.startswith("beadjoint/")]
+        self.assertEqual(self.catalog["commit"], source_commit(ROOT, paths))
         self.assertEqual(self.catalog["derived"]["ñ"], {"base": "n", "marks": ["tilde"]})
 
     def test_preview_round_trip_and_response_cache(self):

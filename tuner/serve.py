@@ -35,7 +35,7 @@ class TunerServer(ThreadingHTTPServer):
 
     def __init__(self, port, root=ROOT):
         self.catalog = Catalog(root)
-        self.commit = source_commit(root)
+        self.commit = source_commit(root, [p for p in self.catalog.inputs if p.startswith("beadjoint/")])
         self.token = secrets.token_urlsafe(32)
         self.busy = threading.BoundedSemaphore(1)
         self.cache = OrderedDict()

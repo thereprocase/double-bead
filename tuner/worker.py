@@ -4,15 +4,20 @@ Reads one preview request as JSON on standard input and prints the result, or
 {"error": message, "code": short code} with exit status 1, as JSON.
 """
 import hashlib
+import hmac
 import importlib
 import importlib.abc
 import importlib.util
+import inspect
 import json
+import math
 import os
 import re
 import struct
 import sys
 import traceback
+import types
+import unicodedata
 from pathlib import Path
 
 from .model import ROOT, SOURCE_PATHS, Catalog, TunerError
@@ -87,52 +92,135 @@ def outline(g):
     return " ".join(paths)
 
 
-# Set by the server to a private directory that lives as long as it does.
+# Set by the server: a private directory that lives as long as it does, and a random secret for
+# this run that authenticates the cache records. The secret stays in memory and the environment.
 CACHE_ENV = "FILLAPRINT_TUNER_CACHE"
-_RECORD = struct.Struct("<32sdI")   # sha256 of the input geometry, pinch-fill area, output size
+CACHE_SECRET_ENV = "FILLAPRINT_TUNER_CACHE_SECRET"
+_RECORD = struct.Struct("<32sdI")   # cache key, pinch-fill area, output size; then the output and its HMAC
+_MAC_SIZE = hashlib.sha256().digest_size
+MAX_CACHE_BYTES = 64 * 1024 * 1024  # the unedited families take about 5 MB
+# The functions and settings that turn raw geometry into a finished glyph. Their code and values
+# are part of every cache key, so a glyph finished by different code is never read back.
+FINISHING = ("finish", "soft", "fill_pinches", "fillet_inside", "_clean", "_robust")
+FINISHING_SETTINGS = ("QS", "PINCH_R", "PINCH_MIN_AREA", "FILLET_MIN_AREA")
+
+
+def _hash_code(h, code):
+    h.update(code.co_code)
+    h.update(repr(code.co_names).encode())
+    for const in code.co_consts:
+        if isinstance(const, types.CodeType):
+            _hash_code(h, const)
+        elif isinstance(const, frozenset):      # set order follows string hashing, which varies per process
+            h.update(repr(sorted(map(repr, const))).encode())
+        else:
+            h.update(repr(const).encode())
+
+
+def finishing_fingerprint(geom):
+    """A digest of the finishing code and settings in geom, the Python bytecode version and GEOS.
+
+    Bytecode rather than source text: edited modules are compiled from memory, and an edit
+    elsewhere in geom.py (the dot radius) leaves finishing, and so the cache, unchanged.
+    """
+    import shapely
+    h = hashlib.sha256()
+    for name in FINISHING:
+        fn = inspect.unwrap(getattr(geom, name))
+        _hash_code(h, fn.__code__)
+        h.update(repr((fn.__defaults__, fn.__kwdefaults__)).encode())
+    settings = tuple(getattr(geom, name) for name in FINISHING_SETTINGS)
+    h.update(repr((settings, shapely.__version__, shapely.geos_version_string, sys.version_info[:2])).encode())
+    return h.digest()
+
+
+def cache_secret():
+    """The server's per-run cache secret from the environment, or None (then nothing is persisted)."""
+    try:
+        secret = bytes.fromhex(os.environ.get(CACHE_SECRET_ENV, ""))
+    except ValueError:
+        return None
+    return secret if len(secret) >= 16 else None
 
 
 class FinishedCache:
-    """Finished glyphs from earlier workers, keyed by the exact bytes of the input geometry.
+    """Finished glyphs from earlier workers, keyed by the finishing code and the exact input geometry.
 
     Finishing is a pure function of its input and dominates preview time, so a glyph whose
     input is unchanged is read back instead of finished again. Only glyphs finished from the
-    unedited sources are written to disk; edited results stay in this process. The file is
-    written by the worker into the server's private directory, and WKB parsing cannot
-    execute code; a damaged file is ignored.
+    unedited sources are written to disk; edited results stay in this process.
+
+    The file lives in the server's private temporary directory. Every record carries an HMAC
+    under a secret the server generates for each run and passes to its workers in their
+    environment; it is never written to disk, and a record that fails verification is ignored.
+    That makes the file tamper-evident against processes that can write it but cannot read the
+    server's memory or environment; it is not a boundary against processes that can. WKB
+    parsing cannot execute code, and a record that does not parse is treated as a miss.
     """
 
-    def __init__(self, directory):
-        self.path = os.path.join(directory, "finished-v1.bin") if directory else None
+    def __init__(self, directory=None, secret=None):
+        self.secret = secret
+        self.path = os.path.join(directory, "finished-v2.bin") if directory and secret else None
         self.entries, self.unsaved, self.volatile = {}, False, set()
+        if self.path:
+            self._load()
+
+    def _mac(self, body):
+        return hmac.new(self.secret, body, hashlib.sha256).digest()
+
+    def _load(self):
         try:
-            data = open(self.path, "rb").read() if self.path else b""
-            offset = 0
-            while offset < len(data):
-                key, area, size = _RECORD.unpack_from(data, offset)
-                offset += _RECORD.size
-                self.entries[key] = (area, data[offset:offset + size])
-                offset += size
-        except (OSError, struct.error):
-            self.entries = {}
+            if os.path.getsize(self.path) > MAX_CACHE_BYTES:
+                return
+            with open(self.path, "rb") as f:
+                data = f.read(MAX_CACHE_BYTES + 1)
+        except OSError:
+            return
+        offset = 0
+        while offset + _RECORD.size <= len(data):
+            key, area, size = _RECORD.unpack_from(data, offset)
+            end = offset + _RECORD.size + size + _MAC_SIZE
+            if end > len(data):
+                break       # truncated: the rest cannot be framed
+            body = data[offset:end - _MAC_SIZE]
+            if hmac.compare_digest(self._mac(body), data[end - _MAC_SIZE:end]) and math.isfinite(area):
+                self.entries[key] = (area, body[_RECORD.size:])
+            offset = end
 
     @staticmethod
-    def key(geom):
-        return hashlib.sha256(geom.wkb).digest()
+    def key(fingerprint, geom):
+        return hashlib.sha256(fingerprint + geom.wkb).digest()
 
     def get(self, key):
-        return self.entries.get(key)
+        """(fill area, finished geometry) for key, or None; a record that does not parse is dropped."""
+        from shapely import from_wkb
+        from shapely.errors import ShapelyError
+        entry = self.entries.get(key)
+        if entry is None:
+            return None
+        try:
+            return entry[0], from_wkb(entry[1])
+        except (ShapelyError, ValueError, TypeError):
+            self.entries.pop(key, None)
+            self.volatile.discard(key)
+            return None
 
     def put(self, key, area, wkb, persist):
         self.entries[key] = (area, wkb)
-        self.unsaved = self.unsaved or persist
-        if not persist:
+        if persist:
+            self.unsaved = True
+            self.volatile.discard(key)
+        else:
             self.volatile.add(key)
 
     def save(self):
         if not (self.path and self.unsaved):
             return
-        records = [_RECORD.pack(k, a, len(w)) + w for k, (a, w) in self.entries.items() if k not in self.volatile]
+        records = []
+        for k, (a, w) in self.entries.items():
+            if k not in self.volatile:
+                body = _RECORD.pack(k, a, len(w)) + w
+                records.append(body + self._mac(body))
         partial = self.path + ".partial"
         with open(partial, "wb") as f:
             f.write(b"".join(records))
@@ -152,9 +240,10 @@ class FillMeter:
     """
 
     def __init__(self, bj, cache=None, persist=False):
-        from shapely import from_wkb
         geom, marks, charset = bj.geom, bj.marks, bj.charset
+        self.fingerprint = finishing_fingerprint(geom)
         self.finished = {}
+        self.outputs = {}       # cache key of an input -> its finished glyph, to explain left-out glyphs
         real_fill, real_finish, real_compose = geom.fill_pinches, geom.finish, marks.compose
         added, composed = [], {}
 
@@ -171,11 +260,10 @@ class FillMeter:
             return out
 
         def finish(g):
-            key = FinishedCache.key(g) if cache else None
+            key = FinishedCache.key(self.fingerprint, g)
             hit = cache.get(key) if cache else None
             if hit:
-                area, wkb = hit
-                out = from_wkb(wkb)
+                area, out = hit
             else:
                 added.clear()
                 out = real_finish(g)
@@ -184,9 +272,16 @@ class FillMeter:
                     cache.put(key, area, out.wkb, persist)
             _, base = composed.pop(id(g), (None, None))
             self.finished[id(out)] = (out, area, base)
+            self.outputs[key] = out
             return out
 
+        for wrapper, real in ((fill_pinches, real_fill), (compose, real_compose), (finish, real_finish)):
+            wrapper.__wrapped__ = real
         geom.fill_pinches, marks.compose, charset.finish = fill_pinches, compose, finish
+
+    def finished_from(self, raw):
+        """The finished glyph this meter recorded for raw input geometry, or None."""
+        return self.outputs.get(FinishedCache.key(self.fingerprint, raw))
 
     def filled(self, geom, depth=0):
         """Filled area in w² for a finished glyph, including its base's fill; None if unmetered."""
@@ -211,11 +306,22 @@ def fill_change(before_meter, before, after_meter, after, limit):
     return round(a, 2), round(b, 2), b - a > limit
 
 
+def usable(g):
+    """Whether the checks and the setting can measure g: nonempty, valid, polygonal, finite."""
+    return (not g.is_empty and g.is_valid and g.geom_type in ("Polygon", "MultiPolygon")
+            and all(math.isfinite(v) for v in g.bounds))
+
+
+def no_outline(title, g):
+    if g.is_empty or not all(math.isfinite(v) for v in g.bounds):
+        return f"{title}: the edit leaves no ink to print."
+    return f"{title}: the edit leaves an outline that is not a valid shape (it crosses itself)."
+
+
 def checks(g, bj, title):
     """The geometry checks of one finished glyph; TunerError when its outline cannot be checked."""
-    if g.is_empty or not g.is_valid or g.geom_type not in ("Polygon", "MultiPolygon"):
-        raise TunerError(f"{title}: the edit leaves no valid outline (the ink is empty or crosses itself).",
-                         "invalid_glyph")
+    if not usable(g):
+        raise TunerError(no_outline(title, g), "invalid_glyph")
     extent = max(g.bounds[2] - g.bounds[0], g.bounds[3] - g.bounds[1])
     if extent > MAX_EXTENT:
         raise TunerError(f"{title}: the edit makes the glyph {extent:.0f}w across, far beyond any real glyph.",
@@ -247,22 +353,43 @@ def tab_too_wide(bj, family, char, glyph):
     return None
 
 
+def shown(c):
+    """A character as a message shows it: invisible and control characters by code point only."""
+    code = f"U+{ord(c):04X}"
+    return code if unicodedata.category(c)[0] in "CZ" else f"{c} ({code})"
+
+
 def absent(bj, family, chars):
     """Why the unedited family has no glyph for chars (only Mono leaves characters out)."""
     listed = ", ".join(chars)
     if family == "M":
-        return f"Mono has no {listed}: wider than Mono's {bj.mono_max:g}w limit."
-    return f"{FAMILY_NAMES[family]} has no {listed}."
+        return f"Mono doesn't include {listed}: wider than Mono's {bj.mono_max:g}w limit."
+    return f"{FAMILY_NAMES[family]} doesn't include {listed}."
 
 
-def disappeared(bj, family, char):
-    if family == "M":
-        return (f"Mono leaves out {char}: after this edit its ink is wider than Mono's {bj.mono_max:g}w limit. "
-                "Narrow the glyph, or undo the last change.")
-    return f"{FAMILY_NAMES[family]} no longer has a glyph for {char} after this edit."
+def left_out(bj, meter, family, char, depth=0):
+    """Why the edited family has no glyph for char. Only Mono leaves glyphs out, for ink wider
+    than its cell; an outline the edit emptied measures NaN wide and is left out as well, which
+    must not read as "too wide"."""
+    if family != "M":
+        return f"{FAMILY_NAMES[family]} no longer has a glyph for {char} after this edit."
+    raw = bj.charset.raw_m().get(char)
+    parts = bj.marks.decompose(char) if raw is None else None
+    if parts and depth < 3:
+        base = bj.marks.mark_base(*parts)
+        g = meter.finished_from(bj.charset.raw_m()[base]) if base in bj.charset.raw_m() else None
+        if g is not None and not usable(g):
+            return f"Mono leaves out {char}: after this edit its base {base} has no ink to print."
+    g = meter.finished_from(raw) if raw is not None else None
+    if g is not None and not usable(g):
+        return f"Mono leaves out {char}: after this edit it has no ink to print."
+    width = f" ({g.bounds[2] - g.bounds[0]:.2f}w)" if g is not None else ""
+    return (f"Mono leaves out {char}: after this edit its ink is wider{width} than Mono's {bj.mono_max:g}w limit. "
+            "Narrow the glyph, or undo the last change.")
 
 
 OVERRUN = re.compile(r"fillets overrun segment (\(.+?\)) -> (\(.+?\)): ([\d.]+) \+ ([\d.]+) > ([\d.]+)")
+COINCIDENT = re.compile(r"stroke point (\(.+?\)) coincides with its neighbour.*")
 
 
 def _point(text):
@@ -297,6 +424,10 @@ def explain(exc, catalog):
         need = float(match[3]) + float(match[4])
         return (f"{where}: the rounded corners at {_point(match[1])} and {_point(match[2])} together need {need:g}w "
                 f"of a segment only {float(match[5]):g}w long. Reduce the corner radius or lengthen the segment.")
+    match = COINCIDENT.fullmatch(str(exc)) if isinstance(exc, ValueError) else None
+    if match:
+        return (f"{where}: the point at {_point(match[1])} sits on the point next to it, so the stroke has no "
+                "direction there. Move one of them.")
     if isinstance(exc, ValueError) and str(exc).startswith("solve:"):
         return (f"{where}: no position of its automatically placed point puts the ink on the guide line with "
                 "these values. Try values closer to the original.")
@@ -317,6 +448,11 @@ class Failures(list):
         return any(f["family"] == family and f["char"] == char for f in self)
 
 
+def control(c):
+    """Control characters and lone surrogates: never glyphs, and unsafe to echo into a message."""
+    return unicodedata.category(c) in ("Cc", "Cs")
+
+
 def options(request, bj):
     """(family, char, text, validate) from a request; TunerError for anything the UI cannot send."""
     family = request.get("family", "P")
@@ -324,16 +460,16 @@ def options(request, bj):
     text = request.get("text", "Hamburgefonts 0123")
     if family not in FAMILY_NAMES:
         raise TunerError("Choose Proportional, Tab or Mono.", "bad_request")
-    if not isinstance(char, str) or len(char) != 1:
+    if not isinstance(char, str) or len(char) != 1 or control(char):
         raise TunerError("Choose one character to preview.", "bad_request")
-    if not isinstance(text, str) or len(text) > MAX_TEXT or any(ord(c) < 32 for c in text):
+    if not isinstance(text, str) or len(text) > MAX_TEXT or any(control(c) for c in text):
         raise TunerError(f"The preview text must be one line of at most {MAX_TEXT} characters.", "bad_request")
     if char not in bj.charset.CHARS:
-        raise TunerError(f"Fillaprint has no glyph for {char} (U+{ord(char):04X}).", "no_glyph")
+        raise TunerError(f"Fillaprint has no glyph for {shown(char)}.", "no_glyph")
     text = "".join(bj.charset.ALIASES.get(c, c) for c in text)
     unknown = sorted({c for c in text if c != " " and c not in bj.charset.CHARS})
     if unknown:
-        listed = ", ".join(f"{c} (U+{ord(c):04X})" for c in unknown)
+        listed = ", ".join(shown(c) for c in unknown)
         raise TunerError(f"Fillaprint has no glyph for {listed}. Remove it from the preview text.", "text_glyphs")
     return family, char, text, request.get("validate", False) is True
 
@@ -348,20 +484,15 @@ def run(request):
     # The selected family first, so an edit that breaks it fails before the others are built.
     names = [family] + [f for f in FAMILY_NAMES if validate and f != family]
 
-    cache = FinishedCache(os.environ.get(CACHE_ENV))
+    cache = FinishedCache(os.environ.get(CACHE_ENV), cache_secret())
     before_meter = FillMeter(bj, cache, persist=True)
     baseline = {f: bj.families[f]() for f in names}
     try:
         cache.save()
     except OSError:
         pass    # the cache only saves time
-    if char not in baseline[family]:
-        raise TunerError(absent(bj, family, [char]) + " Preview it in Proportional or Tab.", "not_in_family")
-    missing = sorted({c for c in text if c != " " and c not in baseline[family]})
-    if missing:
-        raise TunerError(absent(bj, family, missing) + " Remove it from the preview text, or preview Proportional "
-                         "or Tab.", "text_glyphs")
-    before = baseline[family][char].geom
+    # Mono leaves wide glyphs out, and an edit can make one fit: None then, with no original to show.
+    before = baseline[family][char].geom if char in baseline[family] else None
 
     if edited:
         try:
@@ -383,10 +514,21 @@ def run(request):
 
     glyphs = after[family]
     if char not in glyphs:
-        raise TunerError(disappeared(bj, family, char), "disappeared")
+        if before is None and edited:
+            raise TunerError(f"{FAMILY_NAMES[family]} doesn't include {char} before this edit (wider than Mono's "
+                             f"{bj.mono_max:g}w limit), and it still doesn't fit after it. Preview it in Proportional "
+                             "or Tab.", "not_in_family")
+        if before is None:
+            raise TunerError(absent(bj, family, [char]) + " Preview it in Proportional or Tab.", "not_in_family")
+        raise TunerError(left_out(bj, after_meter, family, char), "disappeared")
+    missing = sorted({c for c in text if c != " " and c not in baseline[family] and c not in glyphs})
+    if missing:
+        raise TunerError(absent(bj, family, missing) + " Remove it from the preview text, or preview Proportional "
+                         "or Tab.", "text_glyphs")
     title = f"{FAMILY_NAMES[family]} {char}"
     current = glyphs[char].geom
-    result = {"before": outline(before), "after": outline(current), "bounds": list(before.union(current).bounds),
+    bounds = (before.union(current) if before is not None else current).bounds
+    result = {"before": outline(before) if before is not None else "", "after": outline(current), "bounds": list(bounds),
               "checks": checks(current, bj, title), "width": round(glyphs[char].width, 4), "family": family,
               "changed": [], "failures": failures, "warnings": [], "validation": validate}
     if not result["checks"]["ok"]:
@@ -396,7 +538,7 @@ def run(request):
         failures.add(family, char, "tabular_width", too_wide)
     fill_before, fill_after, fill_warn = fill_change(before_meter, before, after_meter, current, bj.fill_warn)
     result["fill"] = {"before": fill_before, "after": fill_after, "warn": fill_warn}
-    set_text(result, bj, family, text, glyphs, failures)
+    set_text(result, bj, after_meter, family, text, glyphs, failures)
     if validate:
         for f in FAMILY_NAMES:
             if f in after:
@@ -405,11 +547,15 @@ def run(request):
     return result
 
 
-def set_text(result, bj, family, text, glyphs, failures):
-    """The preview line. A glyph the edit removed is left out of it and reported."""
-    for c in sorted({c for c in text if c != " " and c not in glyphs}):
-        failures.add(family, c, "disappeared", disappeared(bj, family, c))
-    line = bj.setters[family]("".join(c for c in text if c == " " or c in glyphs), glyphs)
+def set_text(result, bj, meter, family, text, glyphs, failures):
+    """The preview line. A glyph the edit removed or emptied is left out of it and reported."""
+    for c in sorted({c for c in text if c != " "}):
+        if c not in glyphs:
+            failures.add(family, c, "disappeared", left_out(bj, meter, family, c))
+        elif not usable(glyphs[c].geom):
+            failures.add(family, c, "checks", no_outline(f"{FAMILY_NAMES[family]} {c}", glyphs[c].geom))
+    kept = "".join(c for c in text if c == " " or c in glyphs and usable(glyphs[c].geom))
+    line = bj.setters[family](kept, glyphs)
     result["text_paths"] = [outline(g) for _, g, _ in line]
     result["text_bounds"] = [min(g.bounds[0] for _, g, _ in line), min(g.bounds[1] for _, g, _ in line),
                              max(g.bounds[2] for _, g, _ in line), max(g.bounds[3] for _, g, _ in line)] if line else [0, -4, 10, 10]
@@ -426,7 +572,7 @@ def validate_family(result, bj, family, baseline, new, before_meter, after_meter
     """Check every glyph of one family that the edit changed; a failing glyph does not stop the rest."""
     old = baseline[family]
     for c in sorted(old.keys() - new.keys()):
-        failures.add(family, c, "disappeared", disappeared(bj, family, c))
+        failures.add(family, c, "disappeared", left_out(bj, after_meter, family, c))
         result["changed"].append({"family": family, "char": c, "checks": None, "fill_warn": False, "failed": True,
                                   "disappeared": True})
     for c, glyph in new.items():
@@ -458,9 +604,22 @@ def validate_family(result, bj, family, baseline, new, before_meter, after_meter
         result["changed"].append(entry)
 
 
+def finite(value, path="result"):
+    """value with every non-finite number replaced by None. JSON has no NaN, and one unmeasurable
+    number must not cost the whole preview; the terminal running the tuner is told where it was."""
+    if isinstance(value, float) and not math.isfinite(value):
+        print(f"tuner worker: non-finite number at {path} replaced by null", file=sys.stderr)
+        return None
+    if isinstance(value, dict):
+        return {k: finite(v, f"{path}.{k}") for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [finite(v, f"{path}[{i}]") for i, v in enumerate(value)]
+    return value
+
+
 def main():
     try:
-        output, status = json.dumps(run(json.load(sys.stdin)), allow_nan=False), 0
+        output, status = json.dumps(finite(run(json.load(sys.stdin))), allow_nan=False), 0
     except TunerError as exc:
         output, status = json.dumps(exc.payload()), 1
     except Exception:

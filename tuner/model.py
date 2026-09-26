@@ -16,6 +16,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_PATHS = ("beadjoint/glyphs.py", "beadjoint/latin.py", "beadjoint/marks.py", "beadjoint/geom.py")
+# Everything a preview reads: the whole package (settings, checks and limits live outside the four
+# editable files) and the tuner code the worker runs from disk. A change to any of them makes
+# earlier results stale, so the server refuses to continue until it is restarted.
+DEPENDENCIES = ("beadjoint/*.py", "tuner/__init__.py", "tuner/model.py", "tuner/worker.py")
 
 
 class TunerError(ValueError):
@@ -38,7 +42,7 @@ class Construction:
     helper returns; None for a function that fills a dict (g["a"] = ...). args are the construction
     functions whose results charset passes to this one, in order. softened: the family receives
     these glyphs through glyphs.set_m, which applies soft() first. A construction that is missing
-    stops the tuner, so a rename in the sources cannot silently drop it.
+    or yields nothing to edit stops the tuner, so a rename in the sources cannot silently drop it.
     """
     group: str
     family: str = "P"
@@ -86,21 +90,36 @@ def number(node):
     return None
 
 
-def source_commit(root=ROOT):
-    """HEAD when the glyph sources on disk match it, else None.
+def dependencies(root):
+    """{repo-relative path: bytes} of every file a preview reads (DEPENDENCIES) that exists under root."""
+    root = Path(root)
+    paths = sorted({f.relative_to(root).as_posix() for pattern in DEPENDENCIES for f in root.glob(pattern) if f.is_file()})
+    return {path: (root / path).read_bytes() for path in paths}
 
-    A session is resumed by checking out its commit, so a commit whose sources differ from the
-    ones being edited (uncommitted changes, or no Git at all) would send people to the wrong place.
+
+def source_commit(root, paths):
+    """HEAD when root is a Git checkout whose committed files match paths on disk, else None.
+
+    A session is resumed by checking out its commit, so a commit that does not reproduce the
+    files being edited (uncommitted or untracked changes, root inside another repository, no Git
+    at all) would send people to the wrong place.
     """
+    def git(*args):
+        return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, timeout=10)
+
     try:
-        head = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD"], cwd=root, capture_output=True,
-                              text=True, timeout=10)
-        dirty = subprocess.run(["git", "diff", "--quiet", "HEAD", "--", *SOURCE_PATHS], cwd=root,
-                               capture_output=True, timeout=10)
+        top = git("rev-parse", "--show-toplevel")
+        if top.returncode or Path(top.stdout.strip()).resolve() != Path(root).resolve():
+            return None
+        head = git("rev-parse", "--verify", "-q", "HEAD")
+        if head.returncode or git("ls-files", "--error-unmatch", "--", *paths).returncode:
+            return None
+        if git("diff", "--quiet", "HEAD", "--", *paths).returncode:
+            return None
     except (OSError, subprocess.SubprocessError):
         return None
     commit = head.stdout.strip()
-    return commit if head.returncode == 0 and dirty.returncode == 0 and COMMIT.fullmatch(commit) else None
+    return commit if COMMIT.fullmatch(commit) else None
 
 
 def _session_commit(session):
@@ -129,11 +148,14 @@ class Catalog:
                                  "the repository. With no uncommitted changes, check the sources out again: "
                                  "git rm -r --cached -q beadjoint && git reset --hard", "sources")
         self.hashes = {p: hashlib.sha256(s).hexdigest() for p, s in self.sources.items()}
+        self.inputs = dependencies(self.root)
+        self.inputs.update(self.sources)
         self.slots = {}
         self.targets = []
         self.superseded = []
         self.derived = None
         self._found = {}        # construction name -> source path
+        self._produced = set()  # construction names that yielded at least one target
         self._origin = {}       # target id -> FUNCTIONS name, for whole-glyph constructions
         self._titles = {}       # target id -> how messages name it
         self._spans = []        # (path, first line, last line, target)
@@ -150,7 +172,7 @@ class Catalog:
                     elif name == "DOT":
                         self._found_at("DOT", path)
                         self._target(path, node, ".", Construction("Global dot radius", handles=False), [node.value],
-                                     title="The dot radius", scalar=True)
+                                     key="DOT", title="The dot radius", scalar=True)
         self._check_found()
         if families:
             self._check_families()
@@ -165,7 +187,7 @@ class Catalog:
         self._found_at(fn.name, path)
         construction = FUNCTIONS[fn.name]
         if construction.char:
-            self._target(path, fn, construction.char, construction, fn.body, origin=fn.name)
+            self._target(path, fn, construction.char, construction, fn.body, key=fn.name, origin=fn.name)
             return
         for stmt in fn.body:
             if not isinstance(stmt, ast.Assign) or len(stmt.targets) != 1:
@@ -174,11 +196,11 @@ class Catalog:
             if isinstance(target, ast.Subscript) and isinstance(target.slice, ast.Constant):
                 char = target.slice.value
                 if isinstance(char, str) and len(char) == 1:
-                    self._target(path, stmt, char, construction, [stmt.value], origin=fn.name)
+                    self._target(path, stmt, char, construction, [stmt.value], key=fn.name, origin=fn.name)
             elif isinstance(target, ast.Name) and (fn.name, target.id) in SHARED:
-                self._found_at((fn.name, target.id), path)
-                shared = SHARED[fn.name, target.id]
-                self._target(path, stmt, shared.char, shared, [stmt.value])
+                key = (fn.name, target.id)
+                self._found_at(key, path)
+                self._target(path, stmt, SHARED[key].char, SHARED[key], [stmt.value], key=key)
 
     def _accents(self, path, shapes):
         for key, value in zip(shapes.keys, shapes.values):
@@ -188,23 +210,28 @@ class Catalog:
                                  "Add it to ACCENTS in tuner/model.py.", "sources")
             self._found_at(("SHAPES", name), path)
             self._target(path, value, ACCENTS[name], Construction("Accent " + name, handles=False), [value],
-                         title=f"The {name} accent")
+                         key=("SHAPES", name), title=f"The {name} accent")
 
     def _check_found(self):
-        """Refuse to start when a listed construction is missing or yields nothing to edit."""
+        """Refuse to start when a listed construction is missing or yields nothing to edit.
+
+        A construction written without literal numbers (DOT = 3 / 2, S(*GRAVE)) is found but has no
+        parameters, which would drop it from the tuner as surely as a rename.
+        """
         wanted = [(name, f"{name}() ({c.group})") for name, c in FUNCTIONS.items()]
         wanted += [(key, f"{key[1]} in {key[0]}() ({c.group})") for key, c in SHARED.items()]
         wanted += [(("SHAPES", name), f"marks.SHAPES[{name!r}]") for name in ACCENTS]
-        wanted += [("SHAPES", "SHAPES"), ("DOT", "DOT")]
+        wanted += [("DOT", "DOT")]
         missing = [label for key, label in wanted if key not in self._found]
+        if "SHAPES" not in self._found:
+            missing.append("marks.SHAPES")
         if missing:
             raise TunerError("tuner/model.py lists constructions that are not in the sources: " + ", ".join(missing)
                              + ". Update FUNCTIONS, SHARED or ACCENTS in tuner/model.py to match.", "sources")
-        empty = [name for name in FUNCTIONS if name in self._found and name not in self._origin.values()]
+        empty = [label for key, label in wanted if key not in self._produced]
         if empty:
-            raise TunerError("These construction functions have no numeric parameters the tuner can find: "
-                             + ", ".join(f"{name}()" for name in empty) + ". Update FUNCTIONS in tuner/model.py.",
-                             "sources")
+            raise TunerError("These constructions have no literal numbers the tuner can edit: " + ", ".join(empty)
+                             + ". Write their coordinates as numbers, or update tuner/model.py.", "sources")
 
     def _check_families(self):
         """Drop constructions their family replaces, and list the composite characters.
@@ -248,7 +275,7 @@ class Catalog:
                 base, names = parts
                 self.derived[ch] = {"base": marks.mark_base(base, names), "marks": names}
 
-    def _target(self, path, node, char, construction, roots, origin=None, title=None, scalar=False):
+    def _target(self, path, node, char, construction, roots, key, origin=None, title=None, scalar=False):
         ident = f"{path}:{node.lineno}:{node.col_offset}"
         target = {"id": ident, "char": char, "group": construction.group, "path": path, "line": node.lineno,
                   "family": construction.family, "slots": [], "handles": []}
@@ -320,6 +347,7 @@ class Catalog:
             if not construction.handles:
                 target["handles"] = []
             self.targets.append(target)
+            self._produced.add(key)
             self._titles[ident] = title or f"{char} ({construction.group})"
             self._spans.append((path, node.lineno, node.end_lineno, target))
             if origin:
@@ -334,14 +362,27 @@ class Catalog:
         spans = [(last - first, target) for p, first, last, target in self._spans if p == path and first <= line <= last]
         return min(spans, key=lambda s: s[0])[1] if spans else None
 
+    def changed_inputs(self):
+        """Paths of the files a preview reads that differ on disk from when the tuner started."""
+        changed = []
+        for path, original in self.inputs.items():
+            try:
+                current = (self.root / path).read_bytes()
+            except OSError:
+                current = None
+            if current != original:
+                changed.append(path)
+        return changed
+
     def assert_fresh(self, session=None):
-        for path, original in self.sources.items():
-            if (self.root / path).read_bytes() != original:
-                message = "The glyph source files changed on disk since the tuner started. Restart the tuner to load them."
-                commit = _session_commit(session)
-                if commit:
-                    message += f" This session was saved at commit {commit}; to resume it, run: {_resume(commit)}."
-                raise TunerError(message, "sources_changed")
+        changed = self.changed_inputs()
+        if changed:
+            message = (f"{', '.join(changed)} changed on disk since the tuner started, so earlier previews no longer "
+                       "apply. Restart the tuner to load the current files.")
+            commit = _session_commit(session)
+            if commit:
+                message += f" This session was saved at commit {commit}; to resume it, run: {_resume(commit)}."
+            raise TunerError(message, "sources_changed")
 
     def validate(self, session):
         if not isinstance(session, dict) or session.get("schema") != 1:
@@ -366,7 +407,8 @@ class Catalog:
             slot = self.slots[sid]
             owner = self._owner[sid]
             where = self.title(owner) if len(owner["slots"]) == 1 else f"{self.title(owner)} {slot['label']}"
-            if type(value) not in (int, float) or not math.isfinite(value):
+            # Integers are compared exactly: math.isfinite would overflow on a 400-digit one.
+            if type(value) not in (int, float) or type(value) is float and not math.isfinite(value):
                 raise TunerError(f"{where}: values must be finite numbers.", "bad_session")
             # A few source values (a clip box at x = 40) sit outside the normal range; they stay valid.
             lo, hi = (0, 8) if slot["kind"] == "radius" else (-32, 32)
