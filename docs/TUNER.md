@@ -141,19 +141,34 @@ tagged **Stale** or **Failed**, and dragging pauses until the preview is current
   keeps the edits.
 - *Reload the local tuner page.* The server restarted. Select **Reload page**;
   autosave keeps the edits.
-- *The glyph source files changed on disk since the tuner started. Restart the
-  tuner to load them.* Python files changed after the tuner started, for example
-  by `git apply`. Stop the tuner, start it again, then select **Reload page**.
+- *beadjoint/glyphs.py changed on disk since the tuner started, so earlier
+  previews no longer apply. Restart the tuner to load the current files.* (The
+  message names the files that changed.) Python files changed after the tuner
+  started, for example by `git apply`. Stop the tuner, start it again, then
+  select **Reload page**.
 - *Another tuner tab is computing (or this page before a reload) — retrying…*
   The server computes one preview at a time. The page retries for about a
   minute, then offers **Retry**.
-- *Mono leaves out n: after this edit its ink is wider than Mono's 10w limit.
-  Narrow the glyph, or undo the last change.* The edit made the previewed glyph
-  too wide for Mono. Select **Undo** or **Preview in Proportional**.
-- Messages that name a construction and a problem, such as *n (Base): the
-  rounded corners at (1, 1) and (6, 1) together need 9w of a segment only 5w
-  long*, or *the edit leaves no valid outline*, come from values the geometry
-  cannot use. Select **Undo** or change the value.
+- *The tuner has too many open connections. Try again shortly.* The page
+  retries previews on its own for about a minute (*The tuner server has too many
+  open connections — retrying…*), then offers **Retry**; a failed export or
+  validation offers **Retry** as well. Closing other tuner tabs helps.
+- *Mono leaves out n: after this edit its ink is wider (10.50w) than Mono's 10w
+  limit. Narrow the glyph, or undo the last change.* The edit made the previewed
+  glyph too wide for Mono; the message gives the new width. Select **Undo** or
+  **Preview in Proportional**.
+- *Mono doesn't include ŉ: wider than Mono's 10w limit. Preview it in
+  Proportional or Tab.* The glyph is not in Mono even before your edit. Select
+  **Preview in Proportional**.
+- Messages that name a glyph or construction and a problem come from values
+  the geometry cannot use, for example *n (Base): the rounded corners at (1, 1)
+  and (6, 1) together need 9w of a segment only 5w long. Reduce the corner
+  radius or lengthen the segment.*, *Proportional .: the edit leaves no ink to
+  print.*, or *…: the edit leaves an outline that is not a valid shape (it
+  crosses itself).* Select **Undo** or change the value.
+- *The preview took longer than 3 minutes and was stopped. Undo the last change,
+  or try again.* Select **Retry**, or undo if the last value made the geometry
+  hard to build.
 - *That file is not a tuner session.* The opened file is not a session JSON.
 - *This session was saved for different glyph source files than this checkout
   has.* When the session records its commit, the message gives the command to
