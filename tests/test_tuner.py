@@ -11,6 +11,7 @@ import math
 import os
 from pathlib import Path
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -753,6 +754,24 @@ class LocalServer(unittest.TestCase):
                 status, _, body = self.request("GET", "/api/catalog", headers=headers)
                 self.assertEqual((status, body["code"]), (403, "forbidden"))
 
+    def test_other_methods_and_malformed_requests_answer_json(self):
+        for method in ("PUT", "DELETE", "PATCH", "OPTIONS", "BREW"):
+            with self.subTest(method=method):
+                status, headers, body = self.request(method, "/api/preview")
+                self.assertEqual((status, body["code"]), (405, "method_not_allowed"))
+                self.assertEqual(headers["Allow"], "GET, POST")
+                self.assertEqual(headers["Content-Type"], "application/json; charset=utf-8")
+        status, headers, body = self.request("HEAD", "/")
+        self.assertEqual((status, headers["Allow"], body), (405, "GET, POST", b""))
+        with socket.create_connection(("127.0.0.1", self.port), timeout=10) as s:
+            s.sendall(b"GET / HTTP/1.1\r\n" + b"X-Many: header\r\n" * 101 + b"\r\n")
+            reply = b""
+            while chunk := s.recv(4096):
+                reply += chunk
+        head, _, body = reply.partition(b"\r\n\r\n")
+        self.assertTrue(head.startswith(b"HTTP/1.0 431 "), head)
+        self.assertEqual(json.loads(body)["code"], "bad_request")
+
     def test_post_requires_token_and_rejects_foreign_origin(self):
         payload = json.dumps({"session": self.session()}).encode()
         for headers in ({"Content-Type": "application/json"},
@@ -770,7 +789,9 @@ class LocalServer(unittest.TestCase):
                  ({"Content-Type": "application/json"}, b"", 400, "bad_request"),
                  ({"Content-Type": "application/json", "Content-Length": str(MAX_BODY + 1)}, None, 400, "bad_request"),
                  ({"Content-Type": "application/json"}, b"{not json", 400, "bad_request"),
-                 ({"Content-Type": "application/json"}, b"[1, 2]", 400, "bad_request"))
+                 ({"Content-Type": "application/json"}, b"[1, 2]", 400, "bad_request"),
+                 ({"Content-Type": "application/json"}, b'{"n": ' + b"9" * 5000 + b"}", 400, "bad_request"),
+                 ({"Content-Type": "application/json"}, b"[" * 100_000, 400, "bad_request"))
         for headers, body, status, code in cases:
             with self.subTest(headers=headers, body=(body or b"")[:12]):
                 got, _, reply = self.request("POST", "/api/preview", body, {**token, **headers})
@@ -800,6 +821,15 @@ class LocalServer(unittest.TestCase):
         self.assertLessEqual({"before", "after", "bounds", "checks", "width", "family", "changed", "failures",
                               "warnings", "validation", "fill", "text_paths", "text_bounds", "text_gap"}, set(first))
         self.assertEqual(first["failures"], [])
+        # The worker cached the unedited glyphs, authenticated by a secret that stays in memory.
+        secret = self.server.worker_env[CACHE_SECRET_ENV]
+        self.assertRegex(secret, "^[0-9a-f]{64}$")
+        files = list(Path(self.server.glyph_cache).iterdir())
+        self.assertEqual([f.name for f in files], ["finished-v2.bin"])
+        for f in files:
+            data = f.read_bytes()
+            self.assertNotIn(secret.encode(), data)
+            self.assertNotIn(bytes.fromhex(secret), data)
 
     def test_busy_server_answers_409(self):
         self.assertTrue(self.server.busy.acquire(blocking=False))
@@ -832,13 +862,80 @@ class LocalServer(unittest.TestCase):
             self.assertLess(time.monotonic() - start, 5)
 
 
+class ServerLimits(unittest.TestCase):
+    def test_changed_files_block_cached_results(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            copy_sources(root, catalog().inputs)
+            with serving(TunerServer(0, root=root)) as server:
+                self.assertIsNone(server.commit, "not a Git checkout")
+                token = http_request(server.server_port, "GET", "/api/catalog")[2]["token"]
+                payload = json.dumps({"session": new_session(), "family": "P", "char": "a", "text": "a"}).encode()
+                headers = {"Content-Type": "application/json", "X-Tuner-Token": token}
+                verify_py = root / "beadjoint/verify.py"
+                original = verify_py.read_bytes()
+
+                def post():
+                    status, _, body = http_request(server.server_port, "POST", "/api/preview", payload, headers)
+                    return status, body
+
+                done = subprocess.CompletedProcess([], 0, json.dumps({"checks": {"ok": True}}), "")
+                with mock.patch("tuner.serve.subprocess.run", return_value=done) as worker:
+                    self.assertEqual(post(), (200, {"checks": {"ok": True}}))
+                    verify_py.write_bytes(original.replace(b"LINE_MIN = 1.98", b"LINE_MIN = 2.5"))
+                    status, body = post()
+                    self.assertEqual((status, body["code"]), (400, "sources_changed"))
+                    self.assertIn("beadjoint/verify.py", body["error"])
+                    verify_py.write_bytes(original)
+                    self.assertEqual(post(), (200, {"checks": {"ok": True}}))
+                    self.assertEqual(worker.call_count, 1)
+
+                def change_during_run(*args, **kwargs):
+                    verify_py.write_bytes(original + b"\n")
+                    return done
+
+                payload = payload.replace(b'"char": "a"', b'"char": "b"')
+                with mock.patch("tuner.serve.subprocess.run", side_effect=change_during_run):
+                    self.assertEqual(post()[1]["code"], "sources_changed")
+                verify_py.write_bytes(original)
+                with mock.patch("tuner.serve.subprocess.run", return_value=done) as worker:
+                    self.assertEqual(post()[0], 200)
+                    self.assertEqual(worker.call_count, 1, "a result read during a change was not kept")
+
+    def test_connections_over_the_cap_are_refused_at_once(self):
+        with serving(TunerServer(0, max_connections=2)) as server:
+            port = server.server_port
+            idle = [socket.create_connection(("127.0.0.1", port), timeout=10) for _ in range(2)]
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=10) as extra:
+                    reply = b""
+                    while chunk := extra.recv(4096):
+                        reply += chunk
+                head, _, body = reply.partition(b"\r\n\r\n")
+                self.assertTrue(head.startswith(b"HTTP/1.0 503 "), head)
+                self.assertEqual(json.loads(body)["code"], "too_many_connections")
+            finally:
+                for s in idle:
+                    s.close()
+            deadline = time.monotonic() + 10
+            while True:         # the idle connections' threads notice the close and free their slots
+                try:
+                    status = http_request(port, "GET", "/api/catalog")[0]
+                except (ConnectionError, http.client.HTTPException):
+                    status = None
+                if status == 200 or time.monotonic() > deadline:
+                    break
+                time.sleep(0.05)
+            self.assertEqual(status, 200)
+
+
 class Startup(unittest.TestCase):
     def test_port_in_use_is_one_line(self):
         with socket.socket() as busy:
             busy.bind(("127.0.0.1", 0))
             busy.listen()
             port = busy.getsockname()[1]
-            with self.assertRaises(SystemExit) as caught:
+            with mock.patch("tuner.serve.remove_stale_caches"), self.assertRaises(SystemExit) as caught:
                 serve.main(["--port", str(port), "--no-browser"])
         message = str(caught.exception.code)
         self.assertIn(f"port {port} is already in use", message)
@@ -849,6 +946,54 @@ class Startup(unittest.TestCase):
         message = serve.bind_error(PermissionError(errno.EACCES, "Permission denied"), 80)
         self.assertIn("--port 8767", message)
         self.assertNotIn("\n", message)
+
+    def test_stale_caches_are_removed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            old = time.time() - 2 * serve.STALE_CACHE_AGE
+
+            def make(name, when=old):
+                path = Path(directory, name)
+                path.mkdir()
+                (path / "finished-v2.bin").write_bytes(b"x")
+                os.utime(path, (when, when))
+                return path
+
+            finished = subprocess.Popen([sys.executable, "-c", "pass"])
+            finished.wait()
+            make("fillaprint-tuner-legacy1")                           # no process id, a day old: removed
+            make(f"fillaprint-tuner-{finished.pid}-x")                 # its server has exited: removed
+            make("fillaprint-tuner-recent", time.time())               # in use recently: kept
+            make(f"fillaprint-tuner-{os.getpid()}-y")                  # its server is running: kept
+            make("unrelated-old-dir")
+            elsewhere = make("elsewhere")
+            link = Path(directory, "fillaprint-tuner-link")
+            with contextlib.suppress(OSError, NotImplementedError):
+                link.symlink_to(elsewhere, target_is_directory=True)   # never followed
+            removed = serve.remove_stale_caches(directory)
+            expected = {"fillaprint-tuner-legacy1"} | ({f"fillaprint-tuner-{finished.pid}-x"} if os.name == "posix" else set())
+            self.assertEqual(set(removed), expected)
+            self.assertEqual({p.name for p in Path(directory).iterdir()} & expected, set())
+            self.assertTrue((elsewhere / "finished-v2.bin").exists())
+
+    @unittest.skipUnless(os.name == "posix", "signals")
+    def test_sigterm_removes_the_cache_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            process = subprocess.Popen([sys.executable, "-m", "tuner.serve", "--port", "0", "--no-browser"], cwd=ROOT,
+                                       env={**os.environ, "TMPDIR": directory}, stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE, text=True)
+            try:
+                self.assertIn("Fillaprint glyph tuner: http://127.0.0.1:", process.stdout.readline())
+                caches = [n for n in os.listdir(directory) if n.startswith(serve.CACHE_PREFIX)]
+                self.assertEqual(len(caches), 1)
+                process.send_signal(signal.SIGTERM)
+                self.assertEqual(process.wait(timeout=30), 0)
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.wait()
+                process.stdout.close()
+                process.stderr.close()
+            self.assertEqual(os.listdir(directory), [])
 
 
 if __name__ == "__main__":
