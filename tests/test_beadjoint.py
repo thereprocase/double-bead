@@ -20,7 +20,7 @@ import numpy as np  # noqa: E402
 from scipy import ndimage  # noqa: E402
 from shapely import affinity  # noqa: E402
 
-from beadjoint import charset, geom, marks  # noqa: E402
+from beadjoint import charset, geom  # noqa: E402
 from beadjoint import glyphs as spec  # noqa: E402
 from beadjoint.charset import CHARS, full_m, full_mixed, full_p, glyph_name  # noqa: E402
 from beadjoint.geom import DOT, S, So, fillet, soft  # noqa: E402
@@ -205,13 +205,6 @@ class Finishing(unittest.TestCase):
 
     JOINED = {"M": {"k"}}
 
-    def raw(self, glyphs, base, anchors=None, caron_above=False):
-        """Each glyph before its own finishing, as charset._assemble builds it: base glyphs from the raw
-        dict, composites composed from the family's finished base glyphs."""
-        finished = {c: g.geom for c, g in glyphs.items()}
-        return {c: base[c] if c in base else marks.compose(c, *marks.decompose(c), finished, anchors, caron_above)
-                for c in glyphs}
-
     def fused(self, glyphs, raw):
         """{char: raw pieces per finished piece} wherever one finished piece holds several raw ones."""
         out = {}
@@ -223,12 +216,15 @@ class Finishing(unittest.TestCase):
         return out
 
     def test_no_pieces_fused(self):
-        mono = {"anchors": {"ı": 4.5, "ȷ": 6.0, "l": 4.5}, "caron_above": True}      # as charset.full_m
-        tab_one = {"1": full_mixed()["1"]}
-        for name, glyphs, raw in (("P", full_p(), self.raw(full_p(), charset.raw_p())),
-                                  ("M", full_m(), self.raw(full_m(), charset.raw_m(), **mono)),
-                                  ("T", tab_one, {"1": spec._raw_one_tabular()})):
-            self.assertEqual(set(self.fused(glyphs, raw)), self.JOINED.get(name, set()), name)
+        inputs = charset.finish_inputs()          # what finishing received, recorded as the families were built
+        for name, glyphs in (("P", full_p()), ("T", full_mixed()), ("M", full_m())):
+            self.assertEqual(set(inputs[name]), set(glyphs), name)
+            self.assertEqual(set(self.fused(glyphs, inputs[name])), self.JOINED.get(name, set()), name)
+
+    def test_raw_dicts_are_read_only(self):
+        for raw in (charset.raw_p(), charset.raw_m(), charset.finish_inputs()["P"]):
+            with self.assertRaises(TypeError):
+                raw["a"] = None
 
 
 class Setting(unittest.TestCase):
