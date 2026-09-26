@@ -13,6 +13,7 @@ import math
 from shapely import affinity
 from shapely.ops import unary_union
 
+from . import glyphs as spec
 from .geom import BALL as B, D, DOT, Rect, S, So, rotate180, solve
 
 
@@ -303,6 +304,26 @@ def specials(p, cap, sym):
     x["™"] = shift(S((0, 1), (6, 1)) | S((3, 1), (3, 10)), 0, -4) \
         | shift(S((1, 10), (1, 1, 0), (9, 1, 0), (9, 10)) | S((5, 1), (5, 7, B)), 8, -4)
     return x
+
+
+def extras():
+    """Spacing cedilla and ogonek, and ŉ: the ’ head before P's n."""
+    x = {}
+    x["¸"] = S((3, 11), (3, 13), (1, 13, B))
+    x["˛"] = S((1, 11), (1, 13), (3.5, 13, B))
+    x["ŉ"] = D((1.7, -2.6), 1.4) | S((1.7, -2.6), (0.7, 0.4, B)) | shift(spec._raw_p()["n"], 4.4)
+    return x
+
+
+def mono_extras():
+    """Mono-only glyphs: the dotless ı and ȷ that Mono's accented i and j are built on (Mono's i and j
+    without their dots), and an ellipsis that fits the 10w cell."""
+    m = {}
+    m["ı"] = S((2, 1, B), (4.5, 1, 0), (4.5, 9)) | S((1, 9), (8, 9))
+    m["ȷ"] = S((3, 1, B), (6, 1, 0), (6, 13), (1, 13, B))
+    # Three DOT-size dots with 2w gaps need 13w of ink, past the 10w cell; mono keeps 2w dots here.
+    m["…"] = D((1, 9)) | D((5, 9)) | D((9, 9))
+    return m
 
 
 def mono_narrow():

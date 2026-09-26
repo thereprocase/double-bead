@@ -73,6 +73,45 @@ class SpecReference(unittest.TestCase):
         self.assertFalse([c for c, v in res.items() if v["thin"]])
 
 
+class Construction(unittest.TestCase):
+    """Entry points the tuner and the fonts share: both must read the same geometry."""
+
+    def test_mark_base(self):
+        from beadjoint.marks import mark_base
+        cases = {("i", ("acute",)): "ı", ("j", ("circumflex",)): "ȷ", ("i", ("dieresis", "macron")): "ı",
+                 ("i", ("ogonek",)): "i", ("j", ()): "j", ("n", ("tilde",)): "n", ("t", ("commabelow",)): "t",
+                 ("g", ("cedilla",)): "g", ("I", ("dot",)): "I"}
+        for (base, ms), want in cases.items():
+            self.assertEqual(mark_base(base, list(ms)), want, (base, ms))
+
+    def test_compose_reads_mark_base(self):
+        from beadjoint import charset, marks
+
+        class ReadLog(dict):
+            def __getitem__(self, key):
+                self.read.append(key)
+                return super().__getitem__(key)
+
+        bases = ReadLog(charset.raw_p())
+        for ch in CHARS:
+            dec = marks.decompose(ch)
+            if dec is None or ch in bases:
+                continue
+            bases.read = []
+            marks.compose(ch, *dec, bases)
+            self.assertEqual(bases.read, [marks.mark_base(*dec)], ch)
+
+    def test_extras_and_raw_m(self):
+        from beadjoint import charset, latin
+        self.assertEqual(set(latin.extras()), set("¸˛ŉ"))
+        self.assertEqual(set(latin.mono_extras()), set("ıȷ…"))
+        self.assertIs(charset.raw_m(), charset.raw_m())
+        for c, g in latin.extras().items():
+            self.assertTrue(charset.raw_p()[c].equals_exact(g, 0), c)
+        for c, g in latin.mono_extras().items():
+            self.assertTrue(charset.raw_m()[c].equals_exact(g, 0), c)
+
+
 class HardRules(unittest.TestCase):
     """No thin ink, no thin enclosed holes, separate pieces >= 1.98 w, in every glyph of every set."""
 
