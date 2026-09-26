@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT))
 from beadjoint.charset import CHARS  # noqa: E402
 from beadjoint.glyphs import pieces  # noqa: E402
 from beadjoint.readback import FontReader  # noqa: E402
+from beadjoint.release import VERSION  # noqa: E402
 
 OUT = ROOT / "showcase"
 BODY, INK, CAP, GUIDE = (27, 29, 32), (244, 194, 13), (143, 153, 163), (48, 52, 58)
@@ -104,7 +105,7 @@ def hero():
     for s, em in lines:
         text(d, "Fillaprint", s, pad, y, em)
         y += em * 1.4 + 6
-    caption(d, (pad + 6, 890), "Set with Fillaprint-Regular.ttf v0.101, kerning from the file. Size: Fusion Height = 14 × line "
+    caption(d, (pad + 6, 890), f"Set with Fillaprint-Regular.ttf v{VERSION}, kerning from the file. Size: Fusion Height = 14 × line "
             "width (4.48 mm at 0.32 mm).", 15)
     save(im, "1-double-bead.png")
 

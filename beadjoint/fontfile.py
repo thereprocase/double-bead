@@ -41,10 +41,7 @@ from .glyphs import FIGURES, pieces
 from .setting import CELL_F, CELL_M, WORD, off
 
 UNITS = 50
-VERSION = "0.101"
-# head.created/modified for this revision. Fixed rather than "now" so a rebuild of the same sources
-# is byte-identical; SOURCE_DATE_EPOCH (reproducible-builds.org) overrides it.
-BUILD_DATE = "2026-09-25T00:00:00+00:00"
+from .release import BUILD_DATE, VERSION      # single source of truth: beadjoint/release.py
 KERN_DROP = 0.1
 LINE_MIN = 1.98
 GAP_TRIGGER, GAP_TARGET = 2.0, 2.02      # exceptions: below the trigger, push to the target
