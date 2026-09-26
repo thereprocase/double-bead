@@ -40,7 +40,7 @@ def install_text():
     """INSTALL.txt body, bundled inside the archive. Moved here from the website's sync
     script so the archive is self-describing; wording is unchanged, versions come from
     beadjoint/release.py."""
-    return f"""Fillaprint {RELEASE} — by Repro
+    return f"""Fillaprint v{RELEASE} — by Repro
 Internal font version: {VERSION}
 
 Fine-tuning for release. A future Nerd Fonts launch is a target;

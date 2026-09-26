@@ -68,6 +68,27 @@ class InstallScriptVersion(unittest.TestCase):
             self.assertRegex(text, r"release\.py", "no hardcoded default and no dynamic version read")
 
 
+class ReleaseNotes(unittest.TestCase):
+    """RELEASE_NOTES.md documents exactly one release -- it is pasted verbatim into the
+    GitHub release body, unlike the cumulative CHANGELOG.md -- so it must match
+    beadjoint/release.py for whatever is about to ship.
+
+    This intentionally fails between a version bump and the RELEASE_NOTES.md rewrite that
+    is supposed to follow it (docs/RELEASING.md step 2): a passing check here would mean
+    either release.py wasn't actually bumped yet, or RELEASE_NOTES.md was left stale for a
+    release that already shipped a version bump. Don't silence it by loosening the regexes;
+    rewrite RELEASE_NOTES.md instead."""
+
+    def test_matches_current_release(self):
+        text = (ROOT / "RELEASE_NOTES.md").read_text(encoding="utf-8")
+        version_match = re.search(r"Internal OpenType version: \*\*([0-9.]+)\*\*", text)
+        zip_match = re.search(r"Download \*\*(Fillaprint-[0-9.]+-beta)\.zip\*\*", text)
+        current = (version_match is not None and zip_match is not None
+                   and version_match.group(1) == VERSION and zip_match.group(1) == ZIP_STEM)
+        if not current:
+            self.fail("rewrite RELEASE_NOTES.md for the current release — see docs/RELEASING.md")
+
+
 class PackageRelease(unittest.TestCase):
     def _expected_members(self):
         names = FONT_FILES + ["OFL.txt", "INSTALL.txt"]
@@ -92,8 +113,11 @@ class PackageRelease(unittest.TestCase):
                 fonts = zf.read(f"{ZIP_STEM}/Fillaprint-Regular.ttf")
                 self.assertEqual(fonts, (ROOT / "fonts" / "Fillaprint-Regular.ttf").read_bytes())
                 install = zf.read(f"{ZIP_STEM}/INSTALL.txt").decode("utf-8")
-                self.assertIn(RELEASE, install)
-                self.assertIn(VERSION, install)
+                # Exact first line, not just a substring: a prior version of this text dropped the
+                # "v" before RELEASE ("Fillaprint 0.1.1 beta" instead of "Fillaprint v0.1.1 beta"),
+                # and RELEASE/VERSION both being present elsewhere in the file let that slip past.
+                self.assertEqual(install.splitlines()[0], f"Fillaprint v{RELEASE} — by Repro")
+                self.assertIn(f"Internal font version: {VERSION}", install)
 
     def test_cli_prints_path_and_sha256(self):
         with tempfile.TemporaryDirectory() as out:
