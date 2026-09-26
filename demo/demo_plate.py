@@ -121,7 +121,14 @@ def main():
     filament = json.loads((PROFILES / "filament.json").read_text(encoding="utf-8"))
     process.update({"enable_prime_tower": "0", "flush_volumes_matrix": ["0", "350", "250", "0"],
                     "flush_volumes_vector": ["140"] * 4, "flush_multiplier": ["1"]})
-    for kv in [sys.argv[i + 1] for i, a in enumerate(sys.argv) if a == "--set"]:   # --set key=value
+    for i, a in enumerate(sys.argv):   # --set key=value
+        if a != "--set":
+            continue
+        if i + 1 >= len(sys.argv):
+            raise SystemExit("--set needs a key=value argument")
+        kv = sys.argv[i + 1]
+        if "=" not in kv:
+            raise SystemExit(f"--set {kv!r} is not key=value")
         k, v = kv.split("=", 1)
         process[k] = v
         print("override", k, "=", v)
