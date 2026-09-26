@@ -1,5 +1,5 @@
 {
- "glyphs": {
+ "spec_sets": {
   "P": {
    "max_thickness": 2.968,
    "max_at": "i",
@@ -25,7 +25,10 @@
      0.7
     ]
    },
-   "fail": []
+   "fail": [],
+   "max_stroke": 2.828,
+   "min_piece_gap": 2.0,
+   "exempt_piece_gaps": {}
   },
   "M": {
    "max_thickness": 2.968,
@@ -51,7 +54,12 @@
      0.993
     ]
    },
-   "fail": []
+   "fail": [],
+   "max_stroke": 2.828,
+   "min_piece_gap": 2.0,
+   "exempt_piece_gaps": {
+    "k": 0.253
+   }
   },
   "T:1": {
    "max_thickness": 2.5,
@@ -59,7 +67,10 @@
    "others_max": 2.5,
    "thin": {},
    "tight": {},
-   "fail": []
+   "fail": [],
+   "max_stroke": 2.5,
+   "min_piece_gap": null,
+   "exempt_piece_gaps": {}
   }
  },
  "fonts": {
@@ -78,13 +89,15 @@
    "legacy_pairs": 4749,
    "space_w": 3.221,
    "readback_glyphs": {
-    "max_thickness": 5.5,
-    "max_at": "\u0133",
-    "others_max": 5.5,
+    "max_thickness": 4.844,
+    "max_at": "\u2190",
+    "others_max": 4.844,
     "thin": {},
     "tight": {},
     "fail": [],
-    "max_outline_deviation": 0.0236
+    "max_outline_deviation": 0.0236,
+    "min_piece_gap": 2.0,
+    "joined_by_finishing": []
    }
   },
   "Fillaprint Tab": {
@@ -102,13 +115,15 @@
    "legacy_pairs": 4798,
    "space_w": 3.221,
    "readback_glyphs": {
-    "max_thickness": 5.5,
-    "max_at": "\u0133",
-    "others_max": 5.5,
+    "max_thickness": 4.844,
+    "max_at": "\u2190",
+    "others_max": 4.844,
     "thin": {},
     "tight": {},
     "fail": [],
-    "max_outline_deviation": 0.0236
+    "max_outline_deviation": 0.0236,
+    "min_piece_gap": 2.0,
+    "joined_by_finishing": []
    }
   },
   "Fillaprint Mono": {
@@ -118,13 +133,17 @@
     350
    ],
    "readback_glyphs": {
-    "max_thickness": 5.5,
-    "max_at": "\u0133",
-    "others_max": 5.5,
+    "max_thickness": 4.844,
+    "max_at": "\u2193",
+    "others_max": 4.844,
     "thin": {},
     "tight": {},
     "fail": [],
-    "max_outline_deviation": 0.0297
+    "max_outline_deviation": 0.0297,
+    "min_piece_gap": 2.0,
+    "joined_by_finishing": [
+     "k"
+    ]
    }
   }
  },

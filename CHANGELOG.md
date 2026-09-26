@@ -4,7 +4,36 @@
      beadjoint/release.py's RELEASE and VERSION; tests/test_release.py parses the topmost one.
      Rename "Unreleased" to the tagged release once it ships; never renumber a shipped entry. -->
 
-## Unreleased — v0.1.1 beta (OpenType 0.101)
+## v0.1.1 beta (OpenType 0.101)
+
+### Fixed
+
+- **ĳ** no longer prints as one solid 5.5w slab. After the dots grew to 3w, the i and j
+  of ĳ sat 1.5w apart and finishing filled the gap. j now sits 2.5w further right: ĳ is
+  8w wide with 2w gaps, like a typed "ij". Advance 425 → 500 units; its kerning changed.
+- **Fillaprint Mono**: `.notdef` takes the full 600-unit cell (it was 500 units wide and
+  broke the grid for the 14 characters Mono leaves out); J " - . / use the same shapes as
+  the other families; OS/2 PANOSE marks the family monospaced.
+- `.notdef` has 2w walls in all three families (8w × 14w box with a 4w × 10w counter).
+- Left side bearings in `hmtx` equal each outline's leftmost point (Mono `]` was one unit
+  off, which shifts it in renderers that position glyphs from `hmtx`).
+- Construction: a rounded corner whose neighbours lie on a straight line no longer divides
+  by zero, and a stroke point that coincides with its neighbour raises a named error.
+
+### Changed
+
+- `build.py` now fails on the rules `docs/SPEC.md` §11 lists: spec-set strokes over 2.85w,
+  pieces closer than 1.98w, pieces joined by finishing (Mono k's designed join excepted),
+  and shipped glyphs thicker than 4.85w. Thickness maxima remain reported.
+
+### Documented
+
+- **Line spacing**: at the default 28w pitch, letters with a comma below (ș ț ķ ļ ņ ģ ŗ …)
+  stacked directly under accented capitals (Å Ă Š …) come closer than 2w. Such labels need
+  30.6w (1.53 em). README and `docs/PRINTING.md` give the details.
+- `docs/SPEC.md`: the finishing the fonts apply (pinch fill, inside fillets, soft corners),
+  the real cell gaps and the Tab digit budget, `.notdef` and side-bearing rules.
+
 
 ### Changed
 
@@ -22,6 +51,15 @@
 
 ### Added
 
+- **Glyph tuner** (`python -m tuner.serve`, see `docs/TUNER.md`): a local tool that edits
+  the numeric coordinates and radii of existing glyph constructions, previews the real
+  geometry, validates every changed glyph in all three families (including gaps that
+  finishing would fill), and exports an ordinary Git patch. The 297 superseded review
+  screenshots were removed from the working tree; they remain in Git history.
+- Release tooling: `beadjoint/release.py` holds the version, `tools/package_release.py`
+  builds a byte-reproducible release archive, `docs/RELEASING.md` describes a release, and
+  CI runs the tests on Linux, macOS and Windows and checks that a pinned rebuild
+  reproduces the committed fonts.
 - `demo/slicer_support.py`, starter OrcaSlicer presets in `demo/profiles/`, and repo-relative
   paths throughout `demo/` and `review/`: slice validation runs from a fresh clone.
 - `tests/test_slicer_support.py`.

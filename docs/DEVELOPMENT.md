@@ -33,19 +33,21 @@ built with a different fontTools give different bytes. Keep `requirements.txt` p
 rebuild the fonts in the same commit whenever the pins or the sources change.
 
 Font timestamps are fixed to remove clock-dependent differences: `head.created` and `modified`
-come from `BUILD_DATE` in `beadjoint/fontfile.py`, or from `SOURCE_DATE_EPOCH` when that
-environment variable is set. Bump `BUILD_DATE` together with `VERSION` for each release.
+come from `BUILD_DATE` in `beadjoint/release.py`, or from `SOURCE_DATE_EPOCH` when that
+environment variable is set. Bump `BUILD_DATE` together with `VERSION` for each release
+(see [RELEASING.md](RELEASING.md)).
 
-A clean Python 3.12.14/Linux rebuild of revision `d14b818` with the pinned
-dependencies passed the build and all 20 tests that existed at that revision (the
-suite has grown since). Mono was byte-identical.
-The proportional and Tab files had different GPOS packing (+116 bytes each),
-but their outline and metric tables and all 144,400 glyph-pair adjustments per
-font matched the committed files. Their GPOS bytes and resulting font checksum
-were different. Pins and fixed timestamps alone therefore do not establish
-cross-environment byte identity; compare hashes as well as font behavior before
-claiming exact reproduction. Do not replace a released binary just to normalize
-its packing.
+The v0.1.1 fonts were built in a fresh virtual environment with exactly the pinned
+requirements. Two independent builds from a clean export produced byte-identical TTFs, and
+CI rebuilds the fonts on every push and fails if `fonts/` changes. The pinned environment
+has no `uharfbuzz`, so fontTools packs the GPOS kerning with its pure-Python serializer;
+installing `uharfbuzz` switches it to the HarfBuzz repacker, which lays the same kerning out
+in different bytes. The fonts committed before v0.1.1 appear to have been packed that way:
+re-serialising their GPOS with the pure-Python packer does not reproduce their bytes, and
+clean rebuilds differed from them by about 116 bytes of GPOS while every pair adjustment
+matched.
+Build releases with exactly `requirements.txt`, and compare behaviour as well as hashes
+before concluding that a rebuild differs.
 
 The build writes three TTFs, their OFL license, specimen images, and `report.json`.
 It exits unsuccessfully if geometry, outline read-back, spacing, or setting fidelity

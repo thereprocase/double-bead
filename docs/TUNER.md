@@ -50,7 +50,7 @@ back) come from a cache.
 ## Tune
 
 1. Select a construction in the left rail. The catalog exposes
-   **COUNT_CONSTRUCTIONS constructions and COUNT_PARAMETERS numeric
+   **193 constructions and 2,003 numeric
    parameters**, including base letters, capitals, symbols, Mono variants,
    accents, and the shared dot radius. Search by character or group name; exact
    character matches come first, and a letter drawn by a shared helper finds it
