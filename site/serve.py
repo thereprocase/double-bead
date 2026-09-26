@@ -1,6 +1,9 @@
-"""Serve site/dist on the LAN.
+"""Serve site/dist locally.
 
-    python site/serve.py [--port 8765]      (Windows Python: its firewall rule allows inbound)
+    python site/serve.py [--port 8765] [--host 0.0.0.0]
+
+Binds to 127.0.0.1 by default. Pass --host 0.0.0.0 to also accept LAN connections
+(Windows Python: its firewall rule allows inbound only once you do this).
 """
 import functools
 import http.server
@@ -10,6 +13,7 @@ from pathlib import Path
 
 DIST = Path(__file__).resolve().parent / "dist"
 PORT = int(sys.argv[sys.argv.index("--port") + 1]) if "--port" in sys.argv else 8765
+HOST = sys.argv[sys.argv.index("--host") + 1] if "--host" in sys.argv else "127.0.0.1"
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -26,7 +30,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    host = socket.gethostbyname(socket.gethostname())
-    server = http.server.ThreadingHTTPServer(("0.0.0.0", PORT), functools.partial(Handler, directory=str(DIST)))
-    print(f"Fillaprint site on http://{host}:{PORT}/ (all interfaces)", flush=True)
+    server = http.server.ThreadingHTTPServer((HOST, PORT), functools.partial(Handler, directory=str(DIST)))
+    if HOST == "0.0.0.0":
+        label, note = socket.gethostbyname(socket.gethostname()), " (all interfaces)"
+    else:
+        label, note = HOST, ""
+    print(f"Fillaprint site on http://{label}:{PORT}/{note}", flush=True)
     server.serve_forever()
