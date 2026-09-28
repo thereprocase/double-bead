@@ -4,6 +4,20 @@
      beadjoint/release.py's RELEASE and VERSION; tests/test_release.py parses the topmost one.
      Rename "Unreleased" to the tagged release once it ships; never renumber a shipped entry. -->
 
+## v0.1.3 beta (OpenType 0.103)
+
+### Changed
+
+- **V** is 1w wider: the round point now joins arms whose centres are 8w apart (was 7w),
+  giving 10w of ink, as wide as M and W and still inside the Mono cell. The wider angle
+  lowers its joint fill from 2.17 to 1.82 w².
+- **Z**'s top and bottom bars are longer. The mitred corners stuck out about 0.6w past the
+  free bar ends, so the bars read short; each bar now runs 0.5w past the opposite corner tip
+  (1.1w longer, Z 1w wider). The diagonal and corners are unchanged.
+- Both were chosen in review from four candidates each (see the Fillaprint page's capital
+  V / Z candidates section). Spacing and kerning around V and Z changed, so text containing
+  them can reflow. Fillaprint Mono uses the same V and Z.
+
 ## v0.1.2 beta (OpenType 0.102)
 
 ### Changed

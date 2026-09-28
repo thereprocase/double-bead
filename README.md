@@ -1,6 +1,6 @@
 # Fillaprint
 
-**v0.1.2 beta — fine-tuning for release.** Font shapes, spacing, and print behavior may change before 1.0. A future Nerd Fonts launch is a target; this beta is not part of Nerd Fonts.
+**v0.1.3 beta — fine-tuning for release.** Font shapes, spacing, and print behavior may change before 1.0. A future Nerd Fonts launch is a target; this beta is not part of Nerd Fonts.
 
 
 **A typeface for FDM 3D printing. Strokes and gaps use the same minimum width.**
@@ -57,7 +57,7 @@ specimens, not photos of printed parts. I think this is obvious, but maybe not t
 | [**Fillaprint Tab**](fonts/FillaprintTab-Regular.ttf?raw=true) | Numbers in columns | Letter widths vary; digits have equal widths |
 | [**Fillaprint Mono**](fonts/FillaprintMono-Regular.ttf?raw=true) | Fixed-width layouts | Every character uses a 12w cell |
 
-[Download all three fonts and the license as a ZIP](https://thereprocase.github.io/fillaprint/downloads/Fillaprint-0.1.2-beta.zip).
+[Download all three fonts and the license as a ZIP](https://thereprocase.github.io/fillaprint/downloads/Fillaprint-0.1.3-beta.zip).
 
 Open a TTF file in your system's font installer. On Windows, you can also
 right-click it and choose **Install**. Restart your CAD or design app if the font
