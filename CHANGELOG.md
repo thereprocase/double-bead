@@ -4,6 +4,27 @@
      beadjoint/release.py's RELEASE and VERSION; tests/test_release.py parses the topmost one.
      Rename "Unreleased" to the tagged release once it ships; never renumber a shipped entry. -->
 
+## v0.1.2 beta (OpenType 0.102)
+
+### Changed
+
+- **v** and **z** are sharper, with less solid fill in their joints (chosen from five
+  candidates each in review; see the Fillaprint page's v / z candidates section).
+  v's arms now meet in a plain round join (the stroke's own 1w radius, was a 2w curve) at an
+  8.5w spread (was 7w): joint fill 2.17 → 1.06 w². z's diagonal is steeper (61°, was 55°)
+  with mitred corners: joint fill 1.57 → 0.33 w². v is 1.5w wider; spacing and kerning
+  around v and z changed, so text containing them can reflow.
+- **V** and **Z** follow: V has the same round point at a 7w spread (9w ink, like N and O;
+  joint fill 4.12 → 2.17 w²); Z keeps its 65° diagonal with mitred corners.
+- **Fillaprint Mono** v and z use the proportional shapes (both fit the 12w cell). A wider
+  Mono z would flatten the diagonal and refill its notches.
+- M and W are unchanged: a round point in their narrow, cap-cut V would triple its fill.
+
+### Tests
+
+- `SpecReference.test_set_p` allows the spec-set lowercase up to 2.81w (v's round join
+  measures 2.80w; the R2 limit is 2.85w). The tuner's radius-range test uses S's corner.
+
 ## v0.1.1 beta (OpenType 0.101)
 
 ### Fixed

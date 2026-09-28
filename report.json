@@ -11,7 +11,7 @@
      0.804
     ],
     "v": [
-     2.017
+     0.859
     ],
     "w": [
      0.654,
@@ -21,8 +21,8 @@
      0.749
     ],
     "z": [
-     0.7,
-     0.7
+     0.54,
+     0.549
     ]
    },
    "fail": [],
@@ -40,7 +40,7 @@
      2.236
     ],
     "v": [
-     1.449
+     0.859
     ],
     "w": [
      0.591,
@@ -50,8 +50,8 @@
      0.562
     ],
     "z": [
-     0.993,
-     0.993
+     0.54,
+     0.549
     ]
    },
    "fail": [],
@@ -80,13 +80,13 @@
     1120,
     350
    ],
-   "class_pairs": 35913,
-   "exceptions": 8277,
+   "class_pairs": 35897,
+   "exceptions": 8677,
    "classes": [
     241,
     233
    ],
-   "legacy_pairs": 4749,
+   "legacy_pairs": 4790,
    "space_w": 3.221,
    "readback_glyphs": {
     "max_thickness": 4.844,
@@ -106,13 +106,13 @@
     1120,
     350
    ],
-   "class_pairs": 36035,
-   "exceptions": 8266,
+   "class_pairs": 36022,
+   "exceptions": 8666,
    "classes": [
     241,
     233
    ],
-   "legacy_pairs": 4798,
+   "legacy_pairs": 4842,
    "space_w": 3.221,
    "readback_glyphs": {
     "max_thickness": 4.844,
@@ -154,7 +154,7 @@
     "ttf_min_gap": 2.0,
     "ttf_gap_dev": 0.081,
     "ttf_drift": 0.219,
-    "width": 231.39
+    "width": 232.93
    },
    "0123456789": {
     "source_min_gap": 2.018,
@@ -174,15 +174,15 @@
     "source_min_gap": 2.018,
     "ttf_min_gap": 2.0,
     "ttf_gap_dev": 0.082,
-    "ttf_drift": 0.355,
-    "width": 339.54
+    "ttf_drift": 0.348,
+    "width": 341.63
    },
    "pack my box with five dozen liquor jugs": {
     "source_min_gap": 2.019,
     "ttf_min_gap": 2.014,
-    "ttf_gap_dev": 0.082,
-    "ttf_drift": 0.413,
-    "width": 300.29
+    "ttf_gap_dev": 0.081,
+    "ttf_drift": 0.392,
+    "width": 301.79
    },
    "0.25 1/16 3/32 7/8 13/32": {
     "source_min_gap": 2.017,
@@ -240,7 +240,7 @@
     "ttf_min_gap": 2.0,
     "ttf_gap_dev": 0.081,
     "ttf_drift": 0.219,
-    "width": 231.39
+    "width": 232.93
    },
    "0123456789": {
     "source_min_gap": 2.0,
@@ -260,15 +260,15 @@
     "source_min_gap": 2.018,
     "ttf_min_gap": 2.0,
     "ttf_gap_dev": 0.082,
-    "ttf_drift": 0.355,
-    "width": 339.54
+    "ttf_drift": 0.348,
+    "width": 341.63
    },
    "pack my box with five dozen liquor jugs": {
     "source_min_gap": 2.019,
     "ttf_min_gap": 2.014,
-    "ttf_gap_dev": 0.082,
-    "ttf_drift": 0.413,
-    "width": 300.29
+    "ttf_gap_dev": 0.081,
+    "ttf_drift": 0.392,
+    "width": 301.79
    },
    "0.25 1/16 3/32 7/8 13/32": {
     "source_min_gap": 2.0,
@@ -322,11 +322,11 @@
   },
   "Fillaprint Mono": {
    "abcdefghijklmnopqrstuvwxyz": {
-    "source_min_gap": 2.5,
-    "ttf_min_gap": 2.5,
+    "source_min_gap": 2.25,
+    "ttf_min_gap": 2.26,
     "ttf_gap_dev": 0.02,
     "ttf_drift": 0.01,
-    "width": 309.0
+    "width": 308.05
    },
    "0123456789": {
     "source_min_gap": 3.0,

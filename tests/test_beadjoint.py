@@ -103,7 +103,7 @@ class SpecReference(unittest.TestCase):
     def test_set_p(self):
         res = {c: check_glyph(g.geom) for c, g in spec.set_p().items() if c in spec.LOWER + spec.FIGURES}
         self.assertAlmostEqual(max(res["f"]["thickness"], res["t"]["thickness"]), 2.83, delta=0.01)
-        self.assertLessEqual(max(v["thickness"] for c, v in res.items() if c not in "ft" + self.DOTTED), 2.76)
+        self.assertLessEqual(max(v["thickness"] for c, v in res.items() if c not in "ft" + self.DOTTED), 2.81)
         self.assert_dots(res)
         self.assertFalse([c for c, v in res.items() if v["thin"]])
 

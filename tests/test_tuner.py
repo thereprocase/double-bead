@@ -172,7 +172,7 @@ class SourceEditing(unittest.TestCase):
             self.catalog.edited_sources(self.session)
 
     def test_radius_range(self):
-        s = slot("z", "Base", "S1 point 2 corner radius")
+        s = slot("S", "Capitals", "S1 point 2 corner radius")
         for value in (0, 8):
             self.session["values"] = {s["id"]: value}
             self.assertEqual(self.catalog.validate(self.session), {s["id"]: value})
